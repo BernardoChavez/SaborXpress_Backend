@@ -24,4 +24,9 @@ class Venta extends Model
     {
         return $this->hasMany(VentaDetalle::class, 'id_venta');
     }
+
+    public function comanda()
+    {
+        return $this->hasOne(Comanda::class, 'id_venta');
+    }
 }
