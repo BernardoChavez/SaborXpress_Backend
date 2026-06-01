@@ -1,0 +1,978 @@
+/*
+=============================================================================
+APARTADO: BASE DE DATOS COMPLETA - SABOR XPRESS
+TECNOLOGÍA: SQL SERVER (COMPATIBLE CON SSMS 2016 EN ADELANTE)
+AUTOR: SISTEMA DE INFORMACIÓN Y BASE DE DATOS II
+=============================================================================
+Este script contiene:
+  1. Estructura DDL completa (19 tablas del backend) con tipos SQL Server.
+  2. Datos Semilla (seeders) mínimos para poder realizar pruebas.
+  3. Funciones de Usuario (UDF) para el cálculo de caja.
+  4. Triggers automáticos para descuento de stock, comandas y auditoría.
+  5. Procedimientos almacenados para ventas (usando OPENJSON), caja y producción.
+  6. Guía de pruebas interactivas listas para copiar y pegar.
+=============================================================================
+*/
+
+-- =============================================================================
+-- 1. CREACIÓN DE LA BASE DE DATOS
+-- =============================================================================
+USE master;
+GO
+
+IF EXISTS (SELECT * FROM sys.databases WHERE name = 'SaborXpress')
+BEGIN
+    ALTER DATABASE SaborXpress SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE SaborXpress;
+END;
+GO
+
+CREATE DATABASE SaborXpress;
+GO
+
+USE SaborXpress;
+GO
+
+-- =============================================================================
+-- 2. ELIMINACIÓN DE TABLAS (POR ORDEN DE DEPENDENCIAS)
+-- =============================================================================
+IF OBJECT_ID('dbo.comandas', 'U') IS NOT NULL DROP TABLE dbo.comandas;
+IF OBJECT_ID('dbo.venta_detalles', 'U') IS NOT NULL DROP TABLE dbo.venta_detalles;
+IF OBJECT_ID('dbo.ventas', 'U') IS NOT NULL DROP TABLE dbo.ventas;
+IF OBJECT_ID('dbo.cajas', 'U') IS NOT NULL DROP TABLE dbo.cajas;
+IF OBJECT_ID('dbo.recetas', 'U') IS NOT NULL DROP TABLE dbo.recetas;
+IF OBJECT_ID('dbo.fichas_transformacion', 'U') IS NOT NULL DROP TABLE dbo.fichas_transformacion;
+IF OBJECT_ID('dbo.inventario_procesado', 'U') IS NOT NULL DROP TABLE dbo.inventario_procesado;
+IF OBJECT_ID('dbo.inventario_bruto', 'U') IS NOT NULL DROP TABLE dbo.inventario_bruto;
+IF OBJECT_ID('dbo.producto', 'U') IS NOT NULL DROP TABLE dbo.producto;
+IF OBJECT_ID('dbo.categoria', 'U') IS NOT NULL DROP TABLE dbo.categoria;
+IF OBJECT_ID('dbo.bitacora', 'U') IS NOT NULL DROP TABLE dbo.bitacora;
+IF OBJECT_ID('dbo.autenticacion', 'U') IS NOT NULL DROP TABLE dbo.autenticacion;
+IF OBJECT_ID('dbo.codigos_recuperacion', 'U') IS NOT NULL DROP TABLE dbo.codigos_recuperacion;
+IF OBJECT_ID('dbo.empresa', 'U') IS NOT NULL DROP TABLE dbo.empresa;
+IF OBJECT_ID('dbo.permisos_rol', 'U') IS NOT NULL DROP TABLE dbo.permisos_rol;
+IF OBJECT_ID('dbo.casos_uso', 'U') IS NOT NULL DROP TABLE dbo.casos_uso;
+IF OBJECT_ID('dbo.paquetes', 'U') IS NOT NULL DROP TABLE dbo.paquetes;
+IF OBJECT_ID('dbo.roles', 'U') IS NOT NULL DROP TABLE dbo.roles;
+IF OBJECT_ID('dbo.persona', 'U') IS NOT NULL DROP TABLE dbo.persona;
+
+-- Tablas de infraestructura de Laravel
+IF OBJECT_ID('dbo.personal_access_tokens', 'U') IS NOT NULL DROP TABLE dbo.personal_access_tokens;
+GO
+
+-- =============================================================================
+-- 3. CREACIÓN DE TABLAS (DDL)
+-- =============================================================================
+
+-- Tabla: persona
+CREATE TABLE dbo.persona (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    telefono NVARCHAR(20) NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: roles
+CREATE TABLE dbo.roles (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(50) NOT NULL UNIQUE,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: paquetes
+CREATE TABLE dbo.paquetes (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    codigo NVARCHAR(20) NOT NULL UNIQUE,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: casos_uso
+CREATE TABLE dbo.casos_uso (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_paquete BIGINT NOT NULL CONSTRAINT FK_casos_uso_paquetes FOREIGN KEY REFERENCES dbo.paquetes(id) ON DELETE CASCADE,
+    codigo NVARCHAR(20) NOT NULL,
+    nombre NVARCHAR(100) NOT NULL,
+    es_crud BIT NOT NULL DEFAULT 0,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: permisos_rol
+CREATE TABLE dbo.permisos_rol (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_rol BIGINT NOT NULL CONSTRAINT FK_permisos_rol_roles FOREIGN KEY REFERENCES dbo.roles(id) ON DELETE CASCADE,
+    id_caso_uso BIGINT NOT NULL CONSTRAINT FK_permisos_rol_casos_uso FOREIGN KEY REFERENCES dbo.casos_uso(id) ON DELETE CASCADE,
+    puede_ver BIT NOT NULL DEFAULT 0,
+    puede_crear BIT NOT NULL DEFAULT 0,
+    puede_editar BIT NOT NULL DEFAULT 0,
+    puede_eliminar BIT NOT NULL DEFAULT 0,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE(),
+    CONSTRAINT UQ_permisos_rol UNIQUE (id_rol, id_caso_uso)
+);
+
+-- Tabla: empresa
+CREATE TABLE dbo.empresa (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    nit NVARCHAR(50) NULL,
+    direccion NVARCHAR(200) NULL,
+    telefono NVARCHAR(20) NULL,
+    correo NVARCHAR(100) NULL,
+    moneda NVARCHAR(10) NOT NULL DEFAULT 'Bs.',
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: codigos_recuperacion
+CREATE TABLE dbo.codigos_recuperacion (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_persona BIGINT NOT NULL CONSTRAINT FK_codigos_recup_persona FOREIGN KEY REFERENCES dbo.persona(id) ON DELETE CASCADE,
+    codigo NVARCHAR(6) NOT NULL,
+    expira_el DATETIME2 NOT NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: autenticacion
+CREATE TABLE dbo.autenticacion (
+    id_persona BIGINT PRIMARY KEY CONSTRAINT FK_autenticacion_persona FOREIGN KEY REFERENCES dbo.persona(id) ON DELETE CASCADE,
+    correo NVARCHAR(100) NOT NULL UNIQUE,
+    contrasena NVARCHAR(255) NOT NULL,
+    id_rol BIGINT NOT NULL CONSTRAINT FK_autenticacion_roles FOREIGN KEY REFERENCES dbo.roles(id) ON DELETE CASCADE,
+    intentos_fallidos INT NOT NULL DEFAULT 0,
+    bloqueado_hasta DATETIME2 NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: bitacora
+CREATE TABLE dbo.bitacora (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_usuario BIGINT NULL CONSTRAINT FK_bitacora_autenticacion FOREIGN KEY REFERENCES dbo.autenticacion(id_persona) ON DELETE SET NULL,
+    accion NVARCHAR(100) NOT NULL,
+    accion_detalle NVARCHAR(255) NULL,
+    ip NVARCHAR(45) NOT NULL,
+    fecha DATE NULL,
+    hora_inicio TIME NULL,
+    hora_cierre TIME NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: categoria
+CREATE TABLE dbo.categoria (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(50) NOT NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: producto
+CREATE TABLE dbo.producto (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    descripcion NVARCHAR(MAX) NULL,
+    precio_venta DECIMAL(10,2) NOT NULL,
+    imagen_url NVARCHAR(255) NULL,
+    id_categoria BIGINT NOT NULL CONSTRAINT FK_producto_categoria FOREIGN KEY REFERENCES dbo.categoria(id) ON DELETE CASCADE,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: inventario_bruto (Materia Prima)
+CREATE TABLE dbo.inventario_bruto (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    stock DECIMAL(10,2) NOT NULL DEFAULT 0,
+    unidad_medida NVARCHAR(20) NOT NULL,
+    stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: inventario_procesado (Insumos para cocina)
+CREATE TABLE dbo.inventario_procesado (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    nombre NVARCHAR(100) NOT NULL,
+    stock DECIMAL(10,2) NOT NULL DEFAULT 0,
+    unidad_medida NVARCHAR(20) NOT NULL,
+    stock_minimo DECIMAL(10,2) NOT NULL DEFAULT 0,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: fichas_transformacion
+CREATE TABLE dbo.fichas_transformacion (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_bruto BIGINT NOT NULL CONSTRAINT FK_fichas_inv_bruto FOREIGN KEY REFERENCES dbo.inventario_bruto(id),
+    id_procesado BIGINT NOT NULL CONSTRAINT FK_fichas_inv_proc FOREIGN KEY REFERENCES dbo.inventario_procesado(id),
+    cantidad_bruto DECIMAL(10,2) NOT NULL,
+    cantidad_procesado DECIMAL(10,2) NOT NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: recetas
+CREATE TABLE dbo.recetas (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_producto BIGINT NOT NULL CONSTRAINT FK_recetas_producto FOREIGN KEY REFERENCES dbo.producto(id) ON DELETE CASCADE,
+    id_procesado BIGINT NOT NULL CONSTRAINT FK_recetas_inv_proc FOREIGN KEY REFERENCES dbo.inventario_procesado(id) ON DELETE CASCADE,
+    cantidad DECIMAL(10,2) NOT NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: cajas
+CREATE TABLE dbo.cajas (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_usuario BIGINT NOT NULL CONSTRAINT FK_cajas_autenticacion FOREIGN KEY REFERENCES dbo.autenticacion(id_persona),
+    monto_apertura DECIMAL(10,2) NOT NULL,
+    monto_apertura_qr DECIMAL(10,2) NOT NULL DEFAULT 0,
+    monto_cierre DECIMAL(10,2) NULL,
+    monto_cierre_qr DECIMAL(10,2) NULL,
+    fecha_apertura DATETIME2 NOT NULL DEFAULT GETDATE(),
+    fecha_cierre DATETIME2 NULL,
+    estado NVARCHAR(20) NOT NULL DEFAULT 'Abierta' CONSTRAINT CK_caja_estado CHECK (estado IN ('Abierta', 'Cerrada')),
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: ventas
+CREATE TABLE dbo.ventas (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_caja BIGINT NOT NULL CONSTRAINT FK_ventas_cajas FOREIGN KEY REFERENCES dbo.cajas(id),
+    id_usuario BIGINT NOT NULL CONSTRAINT FK_ventas_autenticacion FOREIGN KEY REFERENCES dbo.autenticacion(id_persona),
+    monto_total DECIMAL(10,2) NOT NULL,
+    metodo_pago NVARCHAR(20) NOT NULL CONSTRAINT CK_metodo_pago CHECK (metodo_pago IN ('Efectivo', 'QR')),
+    codigo_qr NVARCHAR(100) NULL,
+    tipo_entrega NVARCHAR(20) NOT NULL CONSTRAINT CK_tipo_entrega CHECK (tipo_entrega IN ('Mesa', 'Llevar')),
+    estado NVARCHAR(20) NOT NULL DEFAULT 'Pendiente' CONSTRAINT CK_venta_estado CHECK (estado IN ('Pendiente', 'Pagado', 'Cancelado')),
+    nro_pedido INT NOT NULL,
+    VentaEstado NVARCHAR(255) NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: venta_detalles
+CREATE TABLE dbo.venta_detalles (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_venta BIGINT NOT NULL CONSTRAINT FK_detalles_venta FOREIGN KEY REFERENCES dbo.ventas(id) ON DELETE CASCADE,
+    id_producto BIGINT NOT NULL CONSTRAINT FK_detalles_producto FOREIGN KEY REFERENCES dbo.producto(id),
+    cantidad INT NOT NULL,
+    precio_unitario DECIMAL(10,2) NOT NULL,
+    subtotal DECIMAL(10,2) NOT NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla: comandas
+CREATE TABLE dbo.comandas (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    id_venta BIGINT NOT NULL CONSTRAINT FK_comandas_venta FOREIGN KEY REFERENCES dbo.ventas(id) ON DELETE CASCADE,
+    estado NVARCHAR(20) NOT NULL DEFAULT 'Pendiente' CONSTRAINT CK_comanda_estado CHECK (estado IN ('Pendiente', 'En preparación', 'Listo', 'Entregado', 'Anulado')),
+    area NVARCHAR(50) NOT NULL DEFAULT 'Cocina',
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+
+-- Tabla Laravel: personal_access_tokens
+CREATE TABLE dbo.personal_access_tokens (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    tokenable_type NVARCHAR(255) NOT NULL,
+    tokenable_id BIGINT NOT NULL,
+    name NVARCHAR(255) NOT NULL,
+    token NVARCHAR(64) NOT NULL UNIQUE,
+    abilities NVARCHAR(MAX) NULL,
+    last_used_at DATETIME2 NULL,
+    expires_at DATETIME2 NULL,
+    created_at DATETIME2 NULL DEFAULT GETDATE(),
+    updated_at DATETIME2 NULL DEFAULT GETDATE()
+);
+GO
+
+-- =============================================================================
+-- 4. INSERTAR DATOS SEMILLA (SEEDERS DE PRUEBA)
+-- =============================================================================
+
+-- Datos en: persona
+INSERT INTO dbo.persona (nombre, telefono) VALUES 
+('Bernardo Chavez', '77712345'), -- ID 1 (Admin)
+('Maria Gomez', '77754321'),     -- ID 2 (Cajero)
+('Carlos Chef', '77788888'),     -- ID 3 (Cocinero)
+('Juan Perez', '66611111');      -- ID 4 (Cliente)
+
+-- Datos en: roles
+INSERT INTO dbo.roles (nombre) VALUES 
+('Administrador'), -- ID 1
+('Cajero'),        -- ID 2
+('Cocinero'),      -- ID 3
+('Cliente');       -- ID 4
+
+-- Datos en: autenticacion (contraseña encriptada por defecto con bcrypt para 'password' o '12345678')
+-- La contraseña por defecto de prueba es: password ($2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi)
+INSERT INTO dbo.autenticacion (id_persona, correo, contrasena, id_rol, intentos_fallidos) VALUES 
+(1, 'admin@saborxpress.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 1, 0),
+(2, 'cajero@saborxpress.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 2, 0),
+(3, 'cocina@saborxpress.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 3, 0),
+(4, 'cliente@gmail.com', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 4, 0);
+
+-- Datos en: paquetes
+INSERT INTO dbo.paquetes (nombre, codigo) VALUES 
+('Seguridad y Acceso', 'PAQ1_SEG'),
+('Gestión de Usuarios', 'PAQ2_USR'),
+('Configuración del Sistema', 'PAQ3_CONF'),
+('Gestión de Inventarios', 'PAQ4_INV'),
+('Proceso de Ventas', 'PAQ5_VTA');
+
+-- Datos en: casos_uso
+INSERT INTO dbo.casos_uso (id_paquete, codigo, nombre, es_crud) VALUES 
+(1, 'CU1_LOGIN', 'Iniciar Sesión', 0),
+(1, 'CU2_ROLES', 'Gestionar Roles', 1),
+(2, 'CU5_USUARIOS', 'Gestionar Cuentas de Usuario', 1),
+(3, 'CU8_PRODUCTOS', 'Gestionar Catálogo de Productos', 1),
+(4, 'CU12_INV_BRUTO', 'Inventario Materia Prima', 1),
+(4, 'CU13_INV_PROC', 'Inventario Cocina Procesado', 1),
+(4, 'CU38_RECETAS', 'Gestión de Fichas y Recetas', 1),
+(5, 'CU16_CAJAS', 'Apertura y Cierre de Cajas', 1),
+(5, 'CU17_REG_PEDIDO', 'Registrar Venta (POS)', 0),
+(5, 'CU20_COMANDAS', 'Gestión de Comandas Cocina', 1);
+
+-- Datos en: categoria
+INSERT INTO dbo.categoria (nombre) VALUES 
+('Hamburguesas'), -- ID 1
+('Bebidas'),      -- ID 2
+('Acompañamientos'); -- ID 3
+
+-- Datos en: producto
+INSERT INTO dbo.producto (nombre, descripcion, precio_venta, id_categoria) VALUES 
+('Hamburguesa Clásica', 'Hamburguesa de carne de res con queso, lechuga y tomate.', 25.00, 1), -- ID 1
+('Coca-Cola 500ml', 'Bebida gaseosa refrescante.', 10.00, 2),                                 -- ID 2
+('Papas Fritas Medianas', 'Porción crujiente de papas fritas.', 12.00, 3);                   -- ID 3
+
+-- Datos en: inventario_bruto (Materia Prima inicial)
+INSERT INTO dbo.inventario_bruto (nombre, stock, unidad_medida, stock_minimo) VALUES 
+('Carne Molida Especial', 50.00, 'Kg', 10.00),    -- ID 1
+('Pan Hamburguesa Regular', 100.00, 'Unid', 20.00),-- ID 2
+('Papas en Bolsa 10kg', 15.00, 'Bolsas', 3.00),   -- ID 3
+('Jarabe de Concentrado Cola', 5.00, 'Galón', 1.00);-- ID 4
+
+-- Datos en: inventario_procesado (Insumos listos para cocinar/servir)
+INSERT INTO dbo.inventario_procesado (nombre, stock, unidad_medida, stock_minimo) VALUES 
+('Carne Moldeada 150g', 0.00, 'Porciones', 20.00),    -- ID 1 (Consumida por Hamb.)
+('Pan Cortado Preparado', 0.00, 'Porciones', 20.00),  -- ID 2 (Consumida por Hamb.)
+('Porción Papa Cortada 150g', 0.00, 'Porciones', 30.00),-- ID 3 (Consumida por Papas)
+('Vaso Bebida Gaseosa 400ml', 100.00, 'Vasos', 20.00);  -- ID 4 (Consumida por Gaseosa)
+
+-- Datos en: fichas_transformacion (Reglas de producción)
+INSERT INTO dbo.fichas_transformacion (id_bruto, id_procesado, cantidad_bruto, cantidad_procesado) VALUES 
+(1, 1, 1.00, 6.00),   -- 1 Kg Carne Molida = 6 porciones de carne moldeada
+(2, 2, 1.00, 1.00),   -- 1 Pan Bruto = 1 Pan Cortado procesado
+(3, 3, 1.00, 50.00);  -- 1 Bolsa Papa 10kg = 50 porciones de papas listas para freír
+
+-- Datos en: recetas (Qué insumo procesado compone a cada plato final)
+INSERT INTO dbo.recetas (id_producto, id_procesado, cantidad) VALUES 
+(1, 1, 1.00), -- 1 Hamb. Clásica consume 1 porción de Carne Moldeada
+(1, 2, 1.00), -- 1 Hamb. Clásica consume 1 porción de Pan Cortado
+(2, 4, 1.00), -- 1 Coca-Cola consume 1 Vaso de Bebida Gaseosa
+(3, 3, 1.00); -- 1 Porción Papas consume 1 Porción Papa Cortada
+GO
+
+-- =============================================================================
+-- 5. CREACIÓN DE FUNCIONES DEFINIDAS POR EL USUARIO (UDF)
+-- =============================================================================
+
+-- Función 1: Obtener ventas cobradas en Efectivo para una caja determinada
+CREATE FUNCTION dbo.fn_ObtenerVentasEfectivo (@id_caja BIGINT)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @total DECIMAL(10,2);
+    SELECT @total = ISNULL(SUM(monto_total), 0)
+    FROM dbo.ventas
+    WHERE id_caja = @id_caja AND estado = 'Pagado' AND metodo_pago = 'Efectivo';
+    RETURN @total;
+END;
+GO
+
+-- Función 2: Obtener ventas cobradas por QR para una caja determinada
+CREATE FUNCTION dbo.fn_ObtenerVentasQR (@id_caja BIGINT)
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @total DECIMAL(10,2);
+    SELECT @total = ISNULL(SUM(monto_total), 0)
+    FROM dbo.ventas
+    WHERE id_caja = @id_caja AND estado = 'Pagado' AND metodo_pago = 'QR';
+    RETURN @total;
+END;
+GO
+
+-- Función 3: Calcular la diferencia de Efectivo en el cierre de caja
+CREATE FUNCTION dbo.fn_CalcularDiferenciaEfectivo (@id_caja BIGINT, @monto_real DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @monto_apertura DECIMAL(10,2);
+    DECLARE @ventas_efectivo DECIMAL(10,2);
+    
+    SELECT @monto_apertura = monto_apertura FROM dbo.cajas WHERE id = @id_caja;
+    SET @ventas_efectivo = dbo.fn_ObtenerVentasEfectivo(@id_caja);
+    
+    RETURN @monto_real - (@monto_apertura + @ventas_efectivo);
+END;
+GO
+
+-- Función 4: Calcular la diferencia de montos QR en el cierre de caja
+CREATE FUNCTION dbo.fn_CalcularDiferenciaQR (@id_caja BIGINT, @monto_real_qr DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+AS
+BEGIN
+    DECLARE @monto_apertura_qr DECIMAL(10,2);
+    DECLARE @ventas_qr DECIMAL(10,2);
+    
+    SELECT @monto_apertura_qr = ISNULL(monto_apertura_qr, 0) FROM dbo.cajas WHERE id = @id_caja;
+    SET @ventas_qr = dbo.fn_ObtenerVentasQR(@id_caja);
+    
+    RETURN @monto_real_qr - (@monto_apertura_qr + @ventas_qr);
+END;
+GO
+
+-- =============================================================================
+-- 6. CREACIÓN DE TRIGGERS (DISPARADORES)
+-- =============================================================================
+
+-- Trigger 1: Descontar stock procesado de forma automática al registrar detalles de venta (CU32)
+CREATE TRIGGER dbo.trg_DescontarStockAlVender
+ON dbo.venta_detalles
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar si alguno de los insumos no tiene stock suficiente
+    IF EXISTS (
+        SELECT 1
+        FROM dbo.inventario_procesado ip
+        INNER JOIN dbo.recetas r ON ip.id = r.id_procesado
+        INNER JOIN inserted i ON r.id_producto = i.id_producto
+        WHERE ip.stock < (r.cantidad * i.cantidad)
+    )
+    BEGIN
+        -- Generar mensaje de error detallado
+        DECLARE @NombreInsumo NVARCHAR(100);
+        SELECT TOP 1 @NombreInsumo = ip.nombre
+        FROM dbo.inventario_procesado ip
+        INNER JOIN dbo.recetas r ON ip.id = r.id_procesado
+        INNER JOIN inserted i ON r.id_producto = i.id_producto
+        WHERE ip.stock < (r.cantidad * i.cantidad);
+
+        DECLARE @Msg NVARCHAR(200) = N'ERROR: Stock insuficiente del insumo procesado "' + @NombreInsumo + N'" para completar la venta.';
+        RAISERROR(@Msg, 16, 1);
+        ROLLBACK TRANSACTION;
+        RETURN;
+    END;
+
+    -- Descontar el stock si todo es correcto
+    UPDATE ip
+    SET ip.stock = ip.stock - (r.cantidad * i.cantidad),
+        ip.updated_at = GETDATE()
+    FROM dbo.inventario_procesado ip
+    INNER JOIN dbo.recetas r ON ip.id = r.id_procesado
+    INNER JOIN inserted i ON r.id_producto = i.id_producto;
+END;
+GO
+
+-- Trigger 2: Crear Comanda automática para Cocina al registrar una Venta (CU20)
+CREATE TRIGGER dbo.trg_CrearComandaAlVender
+ON dbo.ventas
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    INSERT INTO dbo.comandas (id_venta, estado, area, created_at, updated_at)
+    SELECT id, N'Pendiente', N'Cocina', GETDATE(), GETDATE()
+    FROM inserted;
+END;
+GO
+
+-- Trigger 3: Auditoría automática en bitácora para inventario bruto
+CREATE TRIGGER dbo.trg_AuditarInventarioBruto
+ON dbo.inventario_bruto
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @accion NVARCHAR(100);
+    DECLARE @detalle NVARCHAR(255);
+
+    IF EXISTS(SELECT * FROM inserted) AND EXISTS(SELECT * FROM deleted)
+    BEGIN
+        SET @accion = N'UPDATE_STOCK_BRUTO';
+        SELECT @detalle = N'Materia prima "' + nombre + N'" modificada. Stock: ' + CAST(d.stock AS NVARCHAR(15)) + N' -> ' + CAST(i.stock AS NVARCHAR(15))
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id;
+    END
+    ELSE IF EXISTS(SELECT * FROM inserted)
+    BEGIN
+        SET @accion = N'INSERT_STOCK_BRUTO';
+        SELECT @detalle = N'Registrada nueva materia prima "' + nombre + N'" con Stock inicial: ' + CAST(stock AS NVARCHAR(15))
+        FROM inserted;
+    END
+    ELSE IF EXISTS(SELECT * FROM deleted)
+    BEGIN
+        SET @accion = N'DELETE_STOCK_BRUTO';
+        SELECT @detalle = N'Materia prima "' + nombre + N'" eliminada físicamente.'
+        FROM deleted;
+    END;
+
+    INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+    VALUES (NULL, @accion, @detalle, N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+END;
+GO
+
+-- Trigger 4: Auditoría automática en bitácora para inventario procesado
+CREATE TRIGGER dbo.trg_AuditarInventarioProcesado
+ON dbo.inventario_procesado
+AFTER INSERT, UPDATE, DELETE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    DECLARE @accion NVARCHAR(100);
+    DECLARE @detalle NVARCHAR(255);
+
+    IF EXISTS(SELECT * FROM inserted) AND EXISTS(SELECT * FROM deleted)
+    BEGIN
+        SET @accion = N'UPDATE_STOCK_PROCESADO';
+        SELECT @detalle = N'Insumo de cocina "' + nombre + N'" modificado. Stock: ' + CAST(d.stock AS NVARCHAR(15)) + N' -> ' + CAST(i.stock AS NVARCHAR(15))
+        FROM inserted i
+        INNER JOIN deleted d ON i.id = d.id;
+    END
+    ELSE IF EXISTS(SELECT * FROM inserted)
+    BEGIN
+        SET @accion = N'INSERT_STOCK_PROCESADO';
+        SELECT @detalle = N'Registrado nuevo insumo procesado "' + nombre + N'" con Stock inicial: ' + CAST(stock AS NVARCHAR(15))
+        FROM inserted;
+    END
+    ELSE IF EXISTS(SELECT * FROM deleted)
+    BEGIN
+        SET @accion = N'DELETE_STOCK_PROCESADO';
+        SELECT @detalle = N'Insumo procesado "' + nombre + N'" eliminado físicamente.'
+        FROM deleted;
+    END;
+
+    INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+    VALUES (NULL, @accion, @detalle, N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+END;
+GO
+
+-- =============================================================================
+-- 7. CREACIÓN DE PROCEDIMIENTOS ALMACENADOS
+-- =============================================================================
+
+-- Procedimiento 1: Abrir Caja
+CREATE PROCEDURE dbo.sp_AbrirCaja
+    @id_usuario BIGINT,
+    @monto_apertura DECIMAL(10,2),
+    @monto_apertura_qr DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Validar si el usuario ya tiene una caja abierta
+    IF EXISTS (SELECT 1 FROM dbo.cajas WHERE id_usuario = @id_usuario AND estado = 'Abierta')
+    BEGIN
+        RAISERROR(N'El usuario ya tiene una sesión de caja abierta activa.', 16, 1);
+        RETURN;
+    END;
+
+    INSERT INTO dbo.cajas (id_usuario, monto_apertura, monto_apertura_qr, fecha_apertura, estado, created_at, updated_at)
+    VALUES (@id_usuario, @monto_apertura, @monto_apertura_qr, GETDATE(), 'Abierta', GETDATE(), GETDATE());
+
+    DECLARE @id_caja BIGINT = SCOPE_IDENTITY();
+
+    -- Auditoría
+    INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+    VALUES (@id_usuario, N'APERTURA_CAJA', N'Caja Abierta ID: ' + CAST(@id_caja AS NVARCHAR(10)) + N'. Monto inicial: ' + CAST(@monto_apertura AS NVARCHAR(15)) + N' Bs.', N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+
+    SELECT * FROM dbo.cajas WHERE id = @id_caja;
+END;
+GO
+
+-- Procedimiento 2: Cierre de Caja con Reporte Cuadrante Financiero
+CREATE PROCEDURE dbo.sp_CerrarCaja
+    @id_caja BIGINT,
+    @monto_real DECIMAL(10,2),
+    @monto_real_qr DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Validar que la caja esté abierta
+    IF NOT EXISTS (SELECT 1 FROM dbo.cajas WHERE id = @id_caja AND estado = 'Abierta')
+    BEGIN
+        RAISERROR(N'La caja indicada no existe o ya se encuentra cerrada.', 16, 1);
+        RETURN;
+    END;
+
+    -- Cálculos de saldos esperados y diferencias utilizando las funciones creadas
+    DECLARE @ventas_efectivo DECIMAL(10,2) = dbo.fn_ObtenerVentasEfectivo(@id_caja);
+    DECLARE @ventas_qr DECIMAL(10,2) = dbo.fn_ObtenerVentasQR(@id_caja);
+    
+    DECLARE @dif_efectivo DECIMAL(10,2) = dbo.fn_CalcularDiferenciaEfectivo(@id_caja, @monto_real);
+    DECLARE @dif_qr DECIMAL(10,2) = dbo.fn_CalcularDiferenciaQR(@id_caja, @monto_real_qr);
+
+    -- Actualizar el estado de la caja
+    UPDATE dbo.cajas
+    SET monto_cierre = @monto_real,
+        monto_cierre_qr = @monto_real_qr,
+        fecha_cierre = GETDATE(),
+        estado = 'Cerrada',
+        updated_at = GETDATE()
+    WHERE id = @id_caja;
+
+    DECLARE @id_usuario BIGINT;
+    SELECT @id_usuario = id_usuario FROM dbo.cajas WHERE id = @id_caja;
+
+    -- Auditoría
+    DECLARE @log_detalle NVARCHAR(255) = N'Cerrada Caja ID: ' + CAST(@id_caja AS NVARCHAR(10)) + N'. Dif.Efectivo: ' + CAST(@dif_efectivo AS NVARCHAR(15)) + N' | Dif.QR: ' + CAST(@dif_qr AS NVARCHAR(15));
+    INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+    VALUES (@id_usuario, N'CIERRE_CAJA', @log_detalle, N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+
+    -- Retornar Reporte Comparativo Completo
+    SELECT 
+        c.id AS id_caja,
+        c.fecha_apertura,
+        c.fecha_cierre,
+        c.monto_apertura AS AperturaEfectivo,
+        @ventas_efectivo AS VentasEfectivoEsperadas,
+        (c.monto_apertura + @ventas_efectivo) AS SaldoEfectivoEsperado,
+        @monto_real AS SaldoEfectivoRealEntregado,
+        @dif_efectivo AS DiferenciaEfectivo,
+        c.monto_apertura_qr AS AperturaQR,
+        @ventas_qr AS VentasQREsperadas,
+        (c.monto_apertura_qr + @ventas_qr) AS SaldoQREsperado,
+        @monto_real_qr AS SaldoQRRealEntregado,
+        @dif_qr AS DiferenciaQR,
+        CASE 
+            WHEN @dif_efectivo = 0 AND @dif_qr = 0 THEN N'Caja Cuadrada Perfecta'
+            ELSE N'Caja con Novedades'
+        END AS EstadoArqueo;
+END;
+GO
+
+-- Procedimiento 3: Registrar Venta con Detalles en Formato JSON
+-- Esto encapsula la validación de caja, correlativos, cálculos, inserción de detalles
+-- y manejo transaccional en un solo bloque. El stock se descuenta por Trigger.
+CREATE PROCEDURE dbo.sp_RegistrarVenta
+    @id_usuario BIGINT,
+    @metodo_pago NVARCHAR(20),
+    @codigo_qr NVARCHAR(100) = NULL,
+    @tipo_entrega NVARCHAR(20),
+    @detalles_json NVARCHAR(MAX) -- Formato: [{"id_producto": 1, "cantidad": 2, "precio_unitario": 25.00}]
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Validar si el usuario tiene una caja abierta
+    DECLARE @id_caja BIGINT;
+    SELECT TOP 1 @id_caja = id 
+    FROM dbo.cajas 
+    WHERE id_usuario = @id_usuario AND estado = 'Abierta' 
+    ORDER BY fecha_apertura DESC;
+
+    IF @id_caja IS NULL
+    BEGIN
+        RAISERROR(N'No se puede registrar la venta. El usuario no cuenta con una caja abierta actualmente.', 16, 1);
+        RETURN;
+    END;
+
+    -- Inicio del bloque transaccional seguro
+    BEGIN TRANSACTION;
+
+    BEGIN TRY
+        -- 2. Calcular el monto total sumando los productos del JSON
+        DECLARE @monto_total DECIMAL(10,2);
+        SELECT @monto_total = SUM(cantidad * precio_unitario)
+        FROM OPENJSON(@detalles_json)
+        WITH (
+            cantidad INT '$.cantidad',
+            precio_unitario DECIMAL(10,2) '$.precio_unitario'
+        );
+
+        -- 3. Calcular número de pedido correlativo del día
+        DECLARE @nro_pedido INT;
+        SELECT @nro_pedido = ISNULL(COUNT(*), 0) + 1
+        FROM dbo.ventas
+        WHERE CAST(created_at AS DATE) = CAST(GETDATE() AS DATE);
+
+        -- 4. Insertar la Venta principal
+        -- Al insertarse la venta, el trigger trg_CrearComandaAlVender creará la comanda de cocina automáticamente.
+        DECLARE @id_venta BIGINT;
+        INSERT INTO dbo.ventas (id_caja, id_usuario, monto_total, metodo_pago, codigo_qr, tipo_entrega, estado, nro_pedido, VentaEstado, created_at, updated_at)
+        VALUES (@id_caja, @id_usuario, @monto_total, @metodo_pago, @codigo_qr, @tipo_entrega, 'Pagado', @nro_pedido, N'Completado', GETDATE(), GETDATE());
+
+        SET @id_venta = SCOPE_IDENTITY();
+
+        -- 5. Insertar los detalles de venta
+        -- Esta inserción disparará el trigger trg_DescontarStockAlVender.
+        -- Si hay stock insuficiente, el trigger lanzará un error, abortando la transacción entera (Rollback).
+        INSERT INTO dbo.venta_detalles (id_venta, id_producto, cantidad, precio_unitario, subtotal, created_at, updated_at)
+        SELECT @id_venta, id_producto, cantidad, precio_unitario, (cantidad * precio_unitario), GETDATE(), GETDATE()
+        FROM OPENJSON(@detalles_json)
+        WITH (
+            id_producto BIGINT '$.id_producto',
+            cantidad INT '$.cantidad',
+            precio_unitario DECIMAL(10,2) '$.precio_unitario'
+        );
+
+        -- Registrar en bitácora
+        DECLARE @accion_detalles NVARCHAR(255) = N'Venta registrada. Venta ID: ' + CAST(@id_venta AS NVARCHAR(10)) + N', Total: ' + CAST(@monto_total AS NVARCHAR(15)) + N' Bs. Pedido: #' + CAST(@nro_pedido AS NVARCHAR(10));
+        INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+        VALUES (@id_usuario, N'REGISTRO_VENTA', @accion_detalles, N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+
+        -- Confirmar todas las operaciones si no hubo errores
+        COMMIT TRANSACTION;
+
+        -- Retornar la venta creada y el estado de su comanda de cocina generada automáticamente
+        SELECT 
+            v.id AS id_venta,
+            v.nro_pedido,
+            v.monto_total,
+            v.metodo_pago,
+            v.tipo_entrega,
+            c.id AS id_comanda,
+            c.estado AS estado_comanda,
+            c.area AS area_comanda
+        FROM dbo.ventas v
+        INNER JOIN dbo.comandas c ON v.id = c.id_venta
+        WHERE v.id = @id_venta;
+
+    END TRY
+    BEGIN CATCH
+        -- Deshacer cualquier cambio en caso de error (ej. stock insuficiente arrojado en el trigger)
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+            
+        DECLARE @ErrMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        DECLARE @ErrSeverity INT = ERROR_SEVERITY();
+        DECLARE @ErrState INT = ERROR_STATE();
+        
+        RAISERROR(@ErrMessage, @ErrSeverity, @ErrState);
+    END CATCH;
+END;
+GO
+
+-- Procedimiento 4: Transformación de Inventario (Bruto -> Procesado) (CU38)
+-- Permite tomar materia prima y convertirla a insumos procesados según ficha de rendimiento
+CREATE PROCEDURE dbo.sp_TransformarMateriaPrima
+    @id_usuario BIGINT,
+    @id_bruto BIGINT,
+    @id_procesado BIGINT,
+    @cantidad_bruto_a_descontar DECIMAL(10,2)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- 1. Validar existencia de la ficha de transformación
+    DECLARE @cant_bruto_ficha DECIMAL(10,2);
+    DECLARE @cant_procesado_ficha DECIMAL(10,2);
+
+    SELECT 
+        @cant_bruto_ficha = cantidad_bruto,
+        @cant_procesado_ficha = cantidad_procesado
+    FROM dbo.fichas_transformacion
+    WHERE id_bruto = @id_bruto AND id_procesado = @id_procesado;
+
+    IF @cant_bruto_ficha IS NULL
+    BEGIN
+        RAISERROR(N'No existe una ficha de transformación definida para estos elementos de inventario.', 16, 1);
+        RETURN;
+    END;
+
+    -- 2. Validar que la materia prima tenga stock suficiente
+    DECLARE @stock_bruto_actual DECIMAL(10,2);
+    SELECT @stock_bruto_actual = stock FROM dbo.inventario_bruto WHERE id = @id_bruto;
+
+    IF @stock_bruto_actual < @cantidad_bruto_a_descontar
+    BEGIN
+        RAISERROR(N'Stock insuficiente en inventario bruto (materia prima) para realizar la transformación.', 16, 1);
+        RETURN;
+    END;
+
+    BEGIN TRANSACTION;
+
+    BEGIN TRY
+        -- Calcular la cantidad procesada generada
+        DECLARE @rendimiento DECIMAL(10,4) = @cant_procesado_ficha / @cant_bruto_ficha;
+        DECLARE @procesado_generado DECIMAL(10,2) = @cantidad_bruto_a_descontar * @rendimiento;
+
+        -- Decrementar materia prima
+        UPDATE dbo.inventario_bruto
+        SET stock = stock - @cantidad_bruto_a_descontar,
+            updated_at = GETDATE()
+        WHERE id = @id_bruto;
+
+        -- Incrementar insumos de cocina procesados
+        -- Nota: La actualización del stock en estas tablas disparará automáticamente
+        -- los triggers de auditoría trg_AuditarInventarioBruto y trg_AuditarInventarioProcesado.
+        UPDATE dbo.inventario_procesado
+        SET stock = stock + @procesado_generado,
+            updated_at = GETDATE()
+        WHERE id = @id_procesado;
+
+        -- Registrar en bitácora de auditoría
+        DECLARE @log_info NVARCHAR(255) = N'Transformación: -' + CAST(@cantidad_bruto_a_descontar AS NVARCHAR(15)) + N' Bruto -> +' + CAST(@procesado_generado AS NVARCHAR(15)) + N' Procesado.';
+        INSERT INTO dbo.bitacora (id_usuario, accion, accion_detalle, ip, fecha, hora_inicio, hora_cierre, created_at, updated_at)
+        VALUES (@id_usuario, N'PRODUCCION_TRANSFORMACION', @log_info, N'127.0.0.1', CAST(GETDATE() AS DATE), CAST(GETDATE() AS TIME), CAST(GETDATE() AS TIME), GETDATE(), GETDATE());
+
+        COMMIT TRANSACTION;
+
+        -- Consultar nuevos stocks resultantes
+        SELECT 
+            b.nombre AS MateriaPrima,
+            b.stock AS StockBrutoRestante,
+            p.nombre AS InsumoCocina,
+            p.stock AS StockProcesadoNuevo,
+            @procesado_generado AS RendimientoGenerado
+        FROM dbo.inventario_bruto b
+        CROSS JOIN dbo.inventario_procesado p
+        WHERE b.id = @id_bruto AND p.id = @id_procesado;
+
+    END TRY
+    BEGIN CATCH
+        IF @@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+            
+        DECLARE @ErrorMessage NVARCHAR(4000) = ERROR_MESSAGE();
+        RAISERROR(@ErrorMessage, 16, 1);
+    END CATCH;
+END;
+GO
+
+
+-- =============================================================================
+-- 8. GUÍA Y LOTE DE PRUEBAS COMPLETAS (SSMS)
+-- =============================================================================
+/*
+Copia y ejecuta paso a paso el siguiente bloque de sentencias en SQL Server Management Studio (SSMS) 
+para probar el funcionamiento del circuito completo:
+*/
+
+/*
+-- ==========================================================
+-- PRUEBA 1: INTENTAR REGISTRAR VENTA SIN CAJA ABIERTA
+-- ==========================================================
+-- Debe retornar un error indicando que el usuario no tiene caja abierta.
+BEGIN TRY
+    EXEC dbo.sp_RegistrarVenta 
+        @id_usuario = 2, -- ID de Maria Gomez (Cajera)
+        @metodo_pago = 'Efectivo', 
+        @tipo_entrega = 'Mesa', 
+        @detalles_json = '[{"id_producto": 1, "cantidad": 2, "precio_unitario": 25.00}]';
+END TRY
+BEGIN CATCH
+    PRINT 'PRUEBA 1 PASADA CON ÉXITO. Error Capturado: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+-- ==========================================================
+-- PRUEBA 2: ABRIR LA CAJA PARA EL CAJERO
+-- ==========================================================
+-- Abrimos caja para el usuario 2 (Maria Gomez) con 100 Bs en efectivo y 0 en QR.
+EXEC dbo.sp_AbrirCaja @id_usuario = 2, @monto_apertura = 100.00, @monto_apertura_qr = 0.00;
+GO
+
+-- ==========================================================
+-- PRUEBA 3: INTENTAR VENDER SIN STOCK EN INVENTARIO PROCESADO
+-- ==========================================================
+-- Como acabamos de inicializar la base de datos, el stock de 'Carne Moldeada' y 'Pan Cortado' es 0.00.
+-- La hamburguesa clásica consume estos insumos. Registrar la venta debe abortarse por el Trigger.
+BEGIN TRY
+    EXEC dbo.sp_RegistrarVenta 
+        @id_usuario = 2, 
+        @metodo_pago = 'Efectivo', 
+        @tipo_entrega = 'Mesa', 
+        @detalles_json = '[{"id_producto": 1, "cantidad": 2, "precio_unitario": 25.00}]';
+END TRY
+BEGIN CATCH
+    PRINT 'PRUEBA 3 PASADA CON ÉXITO. El trigger de stock canceló la venta de forma segura.';
+    PRINT 'Mensaje: ' + ERROR_MESSAGE();
+END CATCH;
+GO
+
+-- ==========================================================
+-- PRUEBA 4: TRANSFORMAR MATERIA PRIMA A INSUMOS PROCESADOS
+-- ==========================================================
+-- Abastecemos la cocina transformando materia prima del Inventario Bruto al Procesado.
+-- Descontaremos 5 Kg de Carne Molida Especial (ID 1) para generar Carne Moldeada (ID 1).
+-- Según la ficha, 1 Kg rinde 6 porciones, por lo tanto 5 Kg generarán 30 porciones moldeadas.
+EXEC dbo.sp_TransformarMateriaPrima @id_usuario = 1, @id_bruto = 1, @id_procesado = 1, @cantidad_bruto_a_descontar = 5.00;
+-- También procesamos 20 panes (1 a 1 de rendimiento)
+EXEC dbo.sp_TransformarMateriaPrima @id_usuario = 1, @id_bruto = 2, @id_procesado = 2, @cantidad_bruto_a_descontar = 20.00;
+GO
+
+-- Consultamos los nuevos stocks de insumos de cocina
+SELECT nombre, stock, unidad_medida FROM dbo.inventario_procesado WHERE id IN (1,2);
+GO
+
+-- ==========================================================
+-- PRUEBA 5: REGISTRAR VENTAS EXITOSAMENTE (TRIGGER STOCK Y COMANDAS)
+-- ==========================================================
+-- Ahora que ya tenemos stock procesado, la venta debe completarse correctamente.
+-- Vendemos: 2 Hamburguesas Clásicas (Total 50 Bs) cobrado en Efectivo.
+EXEC dbo.sp_RegistrarVenta 
+    @id_usuario = 2, 
+    @metodo_pago = 'Efectivo', 
+    @tipo_entrega = 'Mesa', 
+    @detalles_json = '[{"id_producto": 1, "cantidad": 2, "precio_unitario": 25.00}]';
+GO
+
+-- Vendemos: 1 Hamburguesa Clásica (25 Bs) y 1 Vaso de Gaseosa (10 Bs), total 35 Bs por QR.
+EXEC dbo.sp_RegistrarVenta 
+    @id_usuario = 2, 
+    @metodo_pago = 'QR', 
+    @codigo_qr = 'QR_TRANS_999888', 
+    @tipo_entrega = 'Llevar', 
+    @detalles_json = '[{"id_producto": 1, "cantidad": 1, "precio_unitario": 25.00}, {"id_producto": 2, "cantidad": 1, "precio_unitario": 10.00}]';
+GO
+
+-- ==========================================================
+-- PRUEBA 6: VERIFICAR LA REDUCCIÓN DEL STOCK PROCESADO (TRIGGER)
+-- ==========================================================
+-- Se vendieron 3 hamburguesas en total. Cada una consume 1 carne moldeada y 1 pan cortado.
+-- El stock de carne moldeada debe haber bajado de 30 a 27.
+-- El stock de pan cortado debe haber bajado de 20 a 17.
+-- El stock de vaso gaseosa de 100 a 99.
+SELECT nombre, stock, unidad_medida FROM dbo.inventario_procesado;
+GO
+
+-- ==========================================================
+-- PRUEBA 7: VERIFICAR LAS COMANDAS DE COCINA AUTOMÁTICAS (TRIGGER)
+-- ==========================================================
+-- El trigger trg_CrearComandaAlVender debe haber creado 2 comandas en estado 'Pendiente' para la cocina.
+SELECT * FROM dbo.comandas;
+GO
+
+-- ==========================================================
+-- PRUEBA 8: VERIFICAR AUDITORÍA DE BITÁCORA
+-- ==========================================================
+-- Consultamos la bitácora para constatar las operaciones que se auditaron automáticamente.
+SELECT * FROM dbo.bitacora ORDER BY id DESC;
+GO
+
+-- ==========================================================
+-- PRUEBA 9: CERRAR LA CAJA Y EMITIR REPORTE FINANCIERO
+-- ==========================================================
+-- Esperado en Efectivo: Apertura (100) + Venta 1 (50) = 150.00 Bs.
+-- Esperado en QR: Apertura (0) + Venta 2 (35) = 35.00 Bs.
+-- Cerramos caja reportando que en caja física hay 150 Bs exactos y en el banco 35 Bs exactos.
+-- Debería salir "Caja Cuadrada Perfecta" con diferencias en 0.
+EXEC dbo.sp_CerrarCaja @id_caja = 1, @monto_real = 150.00, @monto_real_qr = 35.00;
+GO
+*/

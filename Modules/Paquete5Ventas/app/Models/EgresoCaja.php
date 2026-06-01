@@ -5,10 +5,15 @@ namespace Modules\Paquete5Ventas\Models;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Paquete1Seguridad\Models\Autenticacion;
 
-class Venta extends Model
+class EgresoCaja extends Model
 {
-    protected $table = 'ventas';
-    protected $fillable = ['id_caja', 'id_usuario', 'monto_total', 'metodo_pago', 'codigo_qr', 'tipo_entrega', 'estado', 'nro_pedido', 'VentaEstado'];
+    protected $table = 'egresos_caja';
+    protected $fillable = [
+        'id_caja',
+        'id_usuario',
+        'monto',
+        'motivo'
+    ];
 
     public function caja()
     {
@@ -18,10 +23,5 @@ class Venta extends Model
     public function usuario()
     {
         return $this->belongsTo(Autenticacion::class, 'id_usuario', 'id_persona');
-    }
-
-    public function detalles()
-    {
-        return $this->hasMany(VentaDetalle::class, 'id_venta');
     }
 }

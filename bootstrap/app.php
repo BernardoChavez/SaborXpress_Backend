@@ -13,10 +13,13 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware) {
         $middleware->trustProxies(at: '*');
+        $middleware->validateCsrfTokens(except: [
+            'api/*',
+        ]);
         $middleware->alias([
             'abilities' => \Laravel\Sanctum\Http\Middleware\CheckAbilities::class,
             'ability' => \Laravel\Sanctum\Http\Middleware\CheckForAnyAbility::class,
-            'bitacora' => \App\Http\Middleware\BitacoraMiddleware::class, // Registro manual
+            'bitacora' => \App\Http\Middleware\BitacoraMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

@@ -12,6 +12,10 @@ use Modules\Paquete5Ventas\Http\Controllers\CajaController;
 use Modules\Paquete5Ventas\Http\Controllers\VentaController;
 use Modules\Paquete5Ventas\Http\Controllers\CocinaController;
 use Modules\Paquete4Inventarios\Http\Controllers\InventarioController;
+use Modules\Paquete4Inventarios\Http\Controllers\ProveedorController;
+use Modules\Paquete4Inventarios\Http\Controllers\OrdenCompraController;
+use Modules\Paquete5Ventas\Http\Controllers\EgresoCajaController;
+use Modules\Paquete5Ventas\Http\Controllers\ReporteController;
 use App\Http\Controllers\BitacoraController;
 
 /*
@@ -31,6 +35,10 @@ Route::post('/register', [AuthController::class, 'register']);
 Route::post('/password/forgot', [PasswordRecoveryController::class, 'sendCode']);
 Route::post('/password/verify', [PasswordRecoveryController::class, 'verifyCode']);
 Route::post('/password/reset',  [PasswordRecoveryController::class, 'resetPassword']);
+
+// --- RUTAS PÚBLICAS PARA EL CLIENTE FINAL (CU 21, CU 22) ---
+Route::get('/public/ventas/{id}/ticket', [VentaController::class, 'generarTicketPublico'])->whereNumber('id');
+Route::get('/public/ventas/{id}/estado', [VentaController::class, 'getEstadoPublico'])->whereNumber('id');
 
 // --- RUTAS PROTEGIDAS Y AUDITADAS (Middleware: Sanctum + Bitácora) ---
 Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
@@ -80,12 +88,14 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
     Route::get('/categorias', [CategoriaController::class, 'index']);
     Route::get('/categorias/{id}', [CategoriaController::class, 'show'])->whereNumber('id');
 
-    // 💰 GESTIÓN DE CAJA (CU 16)
+    // 💰 GESTIÓN DE CAJA (CU 16, 32)
     Route::get('/caja/estado', [CajaController::class, 'getEstadoActual']);
     Route::post('/caja/abrir', [CajaController::class, 'abrir']);
     Route::post('/caja/cerrar', [CajaController::class, 'cerrar']);
+    Route::post('/caja/egresos', [EgresoCajaController::class, 'store']);
+    Route::get('/caja/egresos', [EgresoCajaController::class, 'index']);
 
-    // 📦 GESTIÓN DE INVENTARIO (CU 12, 13, 38)
+    // 📦 GESTIÓN DE INVENTARIO Y COMPRAS (CU 10, 12, 13, 23, 27, 28, 38)
     Route::get('/inventario/bruto', [InventarioController::class, 'indexBruto']);
     Route::post('/inventario/bruto', [InventarioController::class, 'storeBruto']);
     Route::put('/inventario/bruto/{id}', [InventarioController::class, 'updateBruto'])->whereNumber('id');
@@ -103,13 +113,33 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
     Route::post('/inventario/recetas', [InventarioController::class, 'storeReceta']);
     Route::get('/inventario/recetas/{id_producto}', [InventarioController::class, 'getRecetas'])->whereNumber('id_producto');
 
-    // 🛒 GESTIÓN DE VENTAS (POS - CU 17, 19, 32)
+    // Proveedores (CU 10)
+    Route::get('/proveedores', [ProveedorController::class, 'index']);
+    Route::post('/proveedores', [ProveedorController::class, 'store']);
+    Route::get('/proveedores/{id}', [ProveedorController::class, 'show'])->whereNumber('id');
+    Route::put('/proveedores/{id}', [ProveedorController::class, 'update'])->whereNumber('id');
+    Route::delete('/proveedores/{id}', [ProveedorController::class, 'destroy'])->whereNumber('id');
+
+    // Compras (CU 23, 27, 28)
+    Route::get('/ordenes-compra', [OrdenCompraController::class, 'index']);
+    Route::post('/ordenes-compra', [OrdenCompraController::class, 'store']);
+    Route::get('/ordenes-compra/{id}', [OrdenCompraController::class, 'show'])->whereNumber('id');
+    Route::post('/ordenes-compra/{id}/recibir', [OrdenCompraController::class, 'recepcion'])->whereNumber('id');
+    Route::post('/ordenes-compra/{id}/cancelar', [OrdenCompraController::class, 'cancelar'])->whereNumber('id');
+
+    // 🛒 GESTIÓN DE VENTAS (POS - CU 17, 19, 22, 25, 32)
     Route::get('/ventas', [VentaController::class, 'index']);
     Route::post('/ventas', [VentaController::class, 'store']);
+    Route::get('/ventas/{id}/ticket', [VentaController::class, 'generarTicket'])->whereNumber('id');
 
-    // 👨‍🍳 GESTIÓN DE COCINA (CU 20, 22)
+    // 👨‍🍳 GESTIÓN DE COCINA (CU 20, 21, 22)
     Route::get('/cocina/comandas', [CocinaController::class, 'index']);
     Route::put('/cocina/comandas/{id}', [CocinaController::class, 'updateEstado'])->whereNumber('id');
-});
 
+    // 📊 REPORTES (CU 36)
+    Route::get('/reportes/ventas', [ReporteController::class, 'reporteVentasCSV']);
+    Route::get('/reportes/ventas/pdf', [ReporteController::class, 'reporteVentasPDF']);
+    Route::get('/reportes/inventario', [ReporteController::class, 'reporteInventarioCSV']);
+    Route::get('/reportes/inventario/pdf', [ReporteController::class, 'reporteInventarioPDF']);
+});
 

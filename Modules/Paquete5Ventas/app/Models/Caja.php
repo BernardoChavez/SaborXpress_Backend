@@ -23,4 +23,10 @@ class Caja extends Model
     {
         return $this->belongsTo(Autenticacion::class, 'id_usuario', 'id_persona');
     }
+
+    public function egresos()
+    {
+        return $this->hasMany(EgresoCaja::class, 'id_caja');
+    }
 }
+

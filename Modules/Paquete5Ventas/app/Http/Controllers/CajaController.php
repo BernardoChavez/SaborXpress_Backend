@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Paquete5Ventas\Models\Caja;
 use Modules\Paquete5Ventas\Models\Venta;
+use Modules\Paquete5Ventas\Models\EgresoCaja;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -31,13 +32,18 @@ class CajaController extends Controller
         // Sumar ventas por método de pago
         $ventasEfectivo = Venta::where('id_caja', $caja->id)->where('estado', 'Pagado')->where('metodo_pago', 'Efectivo')->sum('monto_total');
         $ventasQR = Venta::where('id_caja', $caja->id)->where('estado', 'Pagado')->where('metodo_pago', 'QR')->sum('monto_total');
+        
+        // Sumar egresos de caja chica
+        $egresos = EgresoCaja::where('id_caja', $caja->id)->sum('monto');
 
         return response()->json([
             'abierta' => true,
             'caja' => array_merge($caja->toArray(), [
                 'ventas_efectivo' => (float)$ventasEfectivo,
                 'ventas_qr' => (float)$ventasQR,
-                'ventas_totales' => (float)($ventasEfectivo + $ventasQR)
+                'ventas_totales' => (float)($ventasEfectivo + $ventasQR),
+                'egresos' => (float)$egresos,
+                'monto_esperado_efectivo' => (float)($caja->monto_apertura + $ventasEfectivo - $egresos)
             ])
         ]);
     }
@@ -94,11 +100,14 @@ class CajaController extends Controller
         // Calcular ventas por método
         $totalEfectivo = Venta::where('id_caja', $caja->id)->where('estado', 'Pagado')->where('metodo_pago', 'Efectivo')->sum('monto_total');
         $totalQR = Venta::where('id_caja', $caja->id)->where('estado', 'Pagado')->where('metodo_pago', 'QR')->sum('monto_total');
+        
+        // Calcular egresos de caja chica
+        $totalEgresos = EgresoCaja::where('id_caja', $caja->id)->sum('monto');
 
         $montoAperturaEfectivo = (float)$caja->monto_apertura;
         $montoAperturaQR = (float)($caja->monto_apertura_qr ?? 0);
         
-        $saldoEsperadoEfectivo = $montoAperturaEfectivo + $totalEfectivo;
+        $saldoEsperadoEfectivo = $montoAperturaEfectivo + $totalEfectivo - $totalEgresos;
         $saldoEsperadoQR = $montoAperturaQR + $totalQR;
         
         $diferenciaEfectivo = $request->monto_real - $saldoEsperadoEfectivo;
@@ -118,14 +127,15 @@ class CajaController extends Controller
                 'monto_apertura_qr' => $montoAperturaQR,
                 'ventas_efectivo' => $totalEfectivo,
                 'ventas_qr' => $totalQR,
+                'total_egresos' => $totalEgresos,
                 'monto_esperado_fisico' => $saldoEsperadoEfectivo,
                 'monto_real_fisico' => $request->monto_real,
                 'diferencia_efectivo' => $diferenciaEfectivo,
                 'monto_esperado_qr' => $saldoEsperadoQR,
                 'monto_real_qr' => $request->monto_real_qr,
                 'diferencia_qr' => $diferenciaQR,
-                'total_ingresos' => ($request->monto_real - $montoAperturaEfectivo) + ($request->monto_real_qr - $montoAperturaQR),
-                'observacion' => "Efectivo: " . ($diferenciaEfectivo == 0 ? 'OK' : $diferenciaEfectivo) . " | QR: " . ($diferenciaQR == 0 ? 'OK' : $diferenciaQR)
+                'total_ingresos' => ($request->monto_real - $montoAperturaEfectivo) + ($request->monto_real_qr - $montoAperturaQR) - $totalEgresos,
+                'observacion' => "Efectivo: " . ($diferenciaEfectivo == 0 ? 'OK' : $diferenciaEfectivo) . " | QR: " . ($diferenciaQR == 0 ? 'OK' : $diferenciaQR) . " | Egresos: " . $totalEgresos
             ]
         ]);
     }
