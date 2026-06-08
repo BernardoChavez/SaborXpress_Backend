@@ -1,8 +1,10 @@
+<?php
 // ── SEEDER: SaborXpressProyectSeeder ────────────────────────────────────────
 // PROPÓSITO: Inicialización de la arquitectura de 5 Paquetes y Matriz de Permisos.
 // ─────────────────────────────────────────────────────────────────────────────
-namespace Database\Seeders;
 
+
+namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Modules\Paquete1Seguridad\Models\Paquete;
 use Modules\Paquete1Seguridad\Models\CasoUso;
@@ -16,7 +18,7 @@ use Illuminate\Support\Facades\Hash;
 
 class SaborXpressProyectSeeder extends Seeder
 {
-    /**
+        /**
      * ESTRUCTURA MODULAR (Defensa Técnica): 
      * Se divide el sistema en 5 paquetes lógicos para cumplir con los estándares de ingeniería.
      */
