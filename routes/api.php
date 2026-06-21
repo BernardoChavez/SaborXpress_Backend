@@ -64,7 +64,7 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
         Route::put('/categorias/{id}', [CategoriaController::class, 'update'])->whereNumber('id');
         Route::delete('/categorias/{id}', [CategoriaController::class, 'destroy'])->whereNumber('id');
         
-                        // Gestión de Roles y Permisos (CU 6)
+        // Gestión de Roles y Permisos (CU 6)
         Route::get('/roles/estructura', [RolesController::class, 'getEstructura']);
         Route::get('/roles', [RolesController::class, 'index']);
         Route::post('/roles', [RolesController::class, 'store']);
