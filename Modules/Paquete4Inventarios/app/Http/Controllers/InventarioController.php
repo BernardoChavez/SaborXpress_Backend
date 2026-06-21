@@ -165,4 +165,63 @@ class InventarioController extends Controller
     {
         return Receta::with('procesado')->where('id_producto', $id_producto)->get();
     }
+
+    public function destroyReceta($id)
+    {
+        $receta = Receta::findOrFail($id);
+        $receta->delete();
+        return response()->json(['message' => 'Ingrediente eliminado de la receta']);
+    }
+
+    // --- CU31: Gestión de Mermas ---
+    public function indexMermas()
+    {
+        return \Modules\Paquete4Inventarios\Models\Merma::with(['producto', 'usuario'])->get();
+    }
+
+    public function storeMerma(Request $request)
+    {
+        $validated = $request->validate([
+            'id_producto' => 'required|exists:inventario_procesado,id',
+            'cantidad' => 'required|numeric|min:0.01',
+            'motivo' => 'required|string|min:5'
+        ]);
+
+        return DB::transaction(function () use ($request, $validated) {
+            $producto = InventarioProcesado::findOrFail($request->id_producto);
+
+            if ($producto->stock < $request->cantidad) {
+                return response()->json(['message' => 'Stock insuficiente para registrar esta merma.'], 400);
+            }
+
+            // Descontar stock
+            $producto->decrement('stock', $request->cantidad);
+
+            // Registrar merma
+            $merma = \Modules\Paquete4Inventarios\Models\Merma::create([
+                'id_producto' => $request->id_producto,
+                'cantidad' => $request->cantidad,
+                'motivo' => $request->motivo,
+                'id_usuario' => $request->user()->id_persona ?? 1 // Fallback si no hay auth estricto
+            ]);
+
+            // CU9: Registrar en Bitácora
+            if ($request->user()) {
+                \Modules\Paquete9Auditoria\Models\Bitacora::create([
+                    'id_usuario' => $request->user()->id_persona,
+                    'accion' => 'REGISTRO_MERMA',
+                    'accion_detalle' => "Registró merma de {$request->cantidad} {$producto->unidad_medida} de {$producto->nombre}. Motivo: {$request->motivo}",
+                    'ip' => $request->ip(),
+                    'fecha' => now()->toDateString(),
+                    'hora_inicio' => now()->toTimeString(),
+                    'hora_cierre' => now()->toTimeString()
+                ]);
+            }
+
+            return response()->json([
+                'message' => 'Merma registrada y stock actualizado.',
+                'merma' => $merma
+            ]);
+        });
+    }
 }

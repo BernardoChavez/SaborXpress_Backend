@@ -37,7 +37,12 @@ class EmpresaController extends Controller
             'direccion' => 'nullable|string|max:200',
             'telefono' => 'nullable|string|max:20',
             'correo' => 'nullable|email|max:100',
-            'moneda' => 'sometimes|required|string|max:10'
+            'moneda' => 'sometimes|required|string|max:10',
+            'sucursal' => 'nullable|string|max:100',
+            'ciudad' => 'nullable|string|max:100',
+            'actividad_economica' => 'nullable|string|max:255',
+            'codigo_autorizacion' => 'nullable|string|max:255',
+            'leyenda_factura' => 'nullable|string'
         ]);
 
         $empresa->update($validated);

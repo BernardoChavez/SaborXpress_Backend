@@ -1,0 +1,11 @@
+{
+    "name": "Paquete6Produccion",
+    "alias": "paquete6produccion",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete6Produccion\\Providers\\Paquete6ProduccionServiceProvider"
+    ],
+    "files": []
+}

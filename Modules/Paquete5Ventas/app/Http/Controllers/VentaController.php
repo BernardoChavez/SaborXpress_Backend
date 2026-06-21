@@ -8,7 +8,7 @@ use Modules\Paquete5Ventas\Models\Venta;
 use Modules\Paquete5Ventas\Models\VentaDetalle;
 use Modules\Paquete5Ventas\Models\Caja;
 use Modules\Paquete4Inventarios\Models\Receta;
-use Modules\Paquete5Ventas\Models\Comanda;
+use Modules\Paquete6Produccion\Models\Comanda;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 
@@ -55,6 +55,14 @@ class VentaController extends Controller
             // Generar número de pedido correlativo del día (simplificado)
             $nroPedido = Venta::whereDate('created_at', today())->count() + 1;
 
+            // Manejo de facturación (CU26)
+            $nroFactura = null;
+            if ($request->requiere_factura) {
+                // Generar número de factura secuencial
+                $ultimaFactura = Venta::whereNotNull('nro_factura')->max('nro_factura');
+                $nroFactura = $ultimaFactura ? $ultimaFactura + 1 : 1;
+            }
+
             // Crear Venta
             $venta = Venta::create([
                 'id_caja' => $caja->id,
@@ -65,7 +73,12 @@ class VentaController extends Controller
                 'tipo_entrega' => $request->tipo_entrega,
                 'estado' => 'Pagado', // En este flujo simplificado, el POS cobra inmediatamente
                 'nro_pedido' => $nroPedido,
-                'VentaEstado' => $request->VentaEstado
+                'VentaEstado' => $request->VentaEstado,
+                'requiere_factura' => $request->requiere_factura ?? false,
+                'nit_cliente' => $request->nit_cliente,
+                'nombre_cliente' => $request->nombre_cliente,
+                'email_cliente' => $request->email_cliente,
+                'nro_factura' => $nroFactura
             ]);
 
             // Crear Detalles y realizar descargo (CU32)
@@ -88,6 +101,20 @@ class VentaController extends Controller
                 'estado' => 'Pendiente',
                 'area' => 'Cocina' // Podría derivarse del tipo de producto en un futuro
             ]);
+
+            // Enviar Correo si hay email (CU26)
+            if ($request->requiere_factura && $request->email_cliente) {
+                try {
+                    $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
+                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
+                    $pdfContent = $pdf->output();
+
+                    \Illuminate\Support\Facades\Mail::to($request->email_cliente)->send(new \App\Mail\FacturaMail($venta, $pdfContent));
+                } catch (\Exception $e) {
+                    // Logear el error pero no detener la venta
+                    \Illuminate\Support\Facades\Log::error('Error enviando email: ' . $e->getMessage());
+                }
+            }
 
             return response()->json([
                 'message' => 'Venta registrada con éxito',
@@ -204,5 +231,67 @@ class VentaController extends Controller
             'monto_total' => $venta->monto_total,
             'created_at' => $venta->created_at->toIso8601String()
         ]);
+    }
+
+    /**
+     * Anular una venta/ticket
+     */
+    public function anular(Request $request, $id)
+    {
+        $request->validate([
+            'motivo_anulacion' => 'required|string|min:5'
+        ]);
+
+        $venta = Venta::findOrFail($id);
+        
+        if ($venta->estado === 'Cancelado') {
+            return response()->json(['message' => 'El ticket ya se encuentra anulado.'], 400);
+        }
+
+        $venta->estado = 'Cancelado';
+        $venta->motivo_anulacion = $request->motivo_anulacion;
+        $venta->fecha_anulacion = now();
+        $venta->save();
+
+        // Anular comanda asociada si existe (CU20)
+        $comanda = \Modules\Paquete6Produccion\Models\Comanda::where('id_venta', $venta->id)->first();
+        if ($comanda) {
+            $comanda->estado = 'Anulado';
+            $comanda->save();
+        }
+
+        // Opcional: Revertir stock (comentado si no es requerido revertir en caja aún)
+        // foreach ($venta->detalles as $det) { ... }
+
+        return response()->json(['message' => 'Ticket anulado correctamente.', 'venta' => $venta], 200);
+    }
+
+    /**
+     * Listar ventas anuladas
+     */
+    public function anuladas()
+    {
+        return Venta::with(['usuario.persona'])
+            ->where('estado', 'Cancelado')
+            ->latest('fecha_anulacion')
+            ->get();
+    }
+
+    /**
+     * CU26: Generar PDF de Factura
+     */
+    public function factura($id)
+    {
+        $venta = Venta::with(['detalles.producto', 'caja', 'usuario'])->findOrFail($id);
+
+        if (!$venta->requiere_factura || !$venta->nro_factura) {
+            return response()->json(['message' => 'Esta venta no tiene factura emitida.'], 400);
+        }
+
+        $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
+        
+        return $pdf->stream('Factura_' . str_pad($venta->nro_factura, 5, '0', STR_PAD_LEFT) . '.pdf');
     }
 }

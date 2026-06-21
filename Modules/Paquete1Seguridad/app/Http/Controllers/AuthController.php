@@ -75,7 +75,7 @@ class AuthController extends Controller
         $token = $userAuth->createToken('saborxpress_token', $abilities)->plainTextToken;
 
         // 📝 REGISTRO EN BITÁCORA (Login Exitoso)
-        \App\Models\Bitacora::create([
+        \Modules\Paquete9Auditoria\Models\Bitacora::create([
             'id_usuario' => $userAuth->id_persona,
             'accion' => 'LOGIN',
             'accion_detalle' => "El usuario inició sesión como {$nombreRol}",
@@ -100,7 +100,7 @@ class AuthController extends Controller
     {
         // 📝 REGISTRO EN BITÁCORA (Logout)
         if ($request->user()) {
-            \App\Models\Bitacora::create([
+            \Modules\Paquete9Auditoria\Models\Bitacora::create([
                 'id_usuario' => $request->user()->id_persona,
                 'accion' => 'LOGOUT',
                 'accion_detalle' => 'El usuario cerró su sesión de forma segura',

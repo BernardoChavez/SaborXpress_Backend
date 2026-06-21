@@ -24,6 +24,15 @@
     "autoload": {
         "psr-4": {
             "App\\": "app/",
+            "Modules\\Paquete1Seguridad\\": "Modules/Paquete1Seguridad/app/",
+            "Modules\\Paquete2Usuarios\\": "Modules/Paquete2Usuarios/app/",
+            "Modules\\Paquete3Configuracion\\": "Modules/Paquete3Configuracion/app/",
+            "Modules\\Paquete4Inventarios\\": "Modules/Paquete4Inventarios/app/",
+            "Modules\\Paquete5Ventas\\": "Modules/Paquete5Ventas/app/",
+            "Modules\\Paquete6Produccion\\": "Modules/Paquete6Produccion/app/",
+            "Modules\\Paquete7Comprobantes\\": "Modules/Paquete7Comprobantes/app/",
+            "Modules\\Paquete8Compras\\": "Modules/Paquete8Compras/app/",
+            "Modules\\Paquete9Auditoria\\": "Modules/Paquete9Auditoria/app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
@@ -72,21 +81,16 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        },
-        "merge-plugin": {
-            "include": [
-                "Modules/*/composer.json"
-            ]
         }
     },
     "config": {
-        "optimize-autoloader": true,
+        "optimize-autoloader": false,
         "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
             "pestphp/pest-plugin": true,
             "php-http/discovery": true,
-            "wikimedia/composer-merge-plugin": true
+            "wikimedia/composer-merge-plugin": false
         }
     },
     "minimum-stability": "stable",

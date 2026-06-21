@@ -1,0 +1,11 @@
+{
+    "name": "Paquete7Comprobantes",
+    "alias": "paquete7comprobantes",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete7Comprobantes\\Providers\\Paquete7ComprobantesServiceProvider"
+    ],
+    "files": []
+}

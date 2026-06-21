@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/paquete7comprobantes",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Paquete7Comprobantes\\": "app/",
+            "Modules\\Paquete7Comprobantes\\Database\\Factories\\": "database/factories/",
+            "Modules\\Paquete7Comprobantes\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Paquete7Comprobantes\\Tests\\": "tests/"
+        }
+    }
+}

@@ -10,13 +10,13 @@ use Modules\Paquete3Configuracion\Http\Controllers\EmpresaController;
 use Modules\Paquete2Usuarios\Http\Controllers\UsuarioController;
 use Modules\Paquete5Ventas\Http\Controllers\CajaController;
 use Modules\Paquete5Ventas\Http\Controllers\VentaController;
-use Modules\Paquete5Ventas\Http\Controllers\CocinaController;
+use Modules\Paquete6Produccion\Http\Controllers\CocinaController;
 use Modules\Paquete4Inventarios\Http\Controllers\InventarioController;
 use Modules\Paquete4Inventarios\Http\Controllers\ProveedorController;
-use Modules\Paquete4Inventarios\Http\Controllers\OrdenCompraController;
+use Modules\Paquete8Compras\Http\Controllers\OrdenCompraController;
 use Modules\Paquete5Ventas\Http\Controllers\EgresoCajaController;
-use Modules\Paquete5Ventas\Http\Controllers\ReporteController;
-use App\Http\Controllers\BitacoraController;
+use Modules\Paquete9Auditoria\Http\Controllers\ReporteController;
+use Modules\Paquete9Auditoria\Http\Controllers\BitacoraController;
 
 /*
 |--------------------------------------------------------------------------
@@ -38,6 +38,7 @@ Route::post('/password/reset',  [PasswordRecoveryController::class, 'resetPasswo
 
 // --- RUTAS PÚBLICAS PARA EL CLIENTE FINAL (CU 21, CU 22) ---
 Route::get('/public/ventas/{id}/ticket', [VentaController::class, 'generarTicketPublico'])->whereNumber('id');
+Route::get('/public/ventas/{id}/factura', [VentaController::class, 'factura'])->whereNumber('id');
 Route::get('/public/ventas/{id}/estado', [VentaController::class, 'getEstadoPublico'])->whereNumber('id');
 
 // --- RUTAS PROTEGIDAS Y AUDITADAS (Middleware: Sanctum + Bitácora) ---
@@ -109,9 +110,14 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
     Route::get('/inventario/fichas', [InventarioController::class, 'indexFichas']);
     Route::post('/inventario/fichas', [InventarioController::class, 'storeFicha']);
 
+    // Mermas (CU31)
+    Route::get('/inventario/mermas', [InventarioController::class, 'indexMermas']);
+    Route::post('/inventario/mermas', [InventarioController::class, 'storeMerma']);
+
     Route::get('/inventario/recetas', [InventarioController::class, 'indexRecetas']);
     Route::post('/inventario/recetas', [InventarioController::class, 'storeReceta']);
     Route::get('/inventario/recetas/{id_producto}', [InventarioController::class, 'getRecetas'])->whereNumber('id_producto');
+    Route::delete('/inventario/recetas/{id}', [InventarioController::class, 'destroyReceta'])->whereNumber('id');
 
     // Proveedores (CU 10)
     Route::get('/proveedores', [ProveedorController::class, 'index']);
@@ -131,15 +137,20 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
     Route::get('/ventas', [VentaController::class, 'index']);
     Route::post('/ventas', [VentaController::class, 'store']);
     Route::get('/ventas/{id}/ticket', [VentaController::class, 'generarTicket'])->whereNumber('id');
+    Route::get('/ventas/{id}/factura', [VentaController::class, 'factura'])->whereNumber('id');
+    Route::post('/ventas/{id}/anular', [VentaController::class, 'anular'])->whereNumber('id');
+    Route::get('/ventas-anuladas', [VentaController::class, 'anuladas']);
 
     // 👨‍🍳 GESTIÓN DE COCINA (CU 20, 21, 22)
     Route::get('/cocina/comandas', [CocinaController::class, 'index']);
     Route::put('/cocina/comandas/{id}', [CocinaController::class, 'updateEstado'])->whereNumber('id');
 
-    // 📊 REPORTES (CU 36)
+    // 📊 REPORTES (CU 36, 33, 34)
     Route::get('/reportes/ventas', [ReporteController::class, 'reporteVentasCSV']);
     Route::get('/reportes/ventas/pdf', [ReporteController::class, 'reporteVentasPDF']);
     Route::get('/reportes/inventario', [ReporteController::class, 'reporteInventarioCSV']);
     Route::get('/reportes/inventario/pdf', [ReporteController::class, 'reporteInventarioPDF']);
+    Route::get('/reportes/dinamico', [ReporteController::class, 'reporteDinamico']);
+    Route::get('/reportes/rentabilidad', [ReporteController::class, 'rentabilidad']);
 });
 

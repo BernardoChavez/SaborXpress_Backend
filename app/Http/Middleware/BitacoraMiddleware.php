@@ -7,7 +7,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use App\Models\Bitacora;
+use Modules\Paquete9Auditoria\Models\Bitacora;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;

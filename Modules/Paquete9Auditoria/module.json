@@ -1,0 +1,11 @@
+{
+    "name": "Paquete9Auditoria",
+    "alias": "paquete9auditoria",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete9Auditoria\\Providers\\Paquete9AuditoriaServiceProvider"
+    ],
+    "files": []
+}

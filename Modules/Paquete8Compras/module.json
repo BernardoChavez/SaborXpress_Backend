@@ -1,0 +1,11 @@
+{
+    "name": "Paquete8Compras",
+    "alias": "paquete8compras",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete8Compras\\Providers\\Paquete8ComprasServiceProvider"
+    ],
+    "files": []
+}

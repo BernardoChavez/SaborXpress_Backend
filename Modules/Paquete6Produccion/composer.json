@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/paquete6produccion",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Paquete6Produccion\\": "app/",
+            "Modules\\Paquete6Produccion\\Database\\Factories\\": "database/factories/",
+            "Modules\\Paquete6Produccion\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Paquete6Produccion\\Tests\\": "tests/"
+        }
+    }
+}

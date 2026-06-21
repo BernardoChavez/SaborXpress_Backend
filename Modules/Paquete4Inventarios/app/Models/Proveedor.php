@@ -2,6 +2,7 @@
 
 namespace Modules\Paquete4Inventarios\Models;
 
+use Modules\Paquete8Compras\Models\OrdenCompra;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
