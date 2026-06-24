@@ -145,7 +145,7 @@ class VentaController extends Controller
         $usuario = Auth::user();
         $query = Venta::with(['detalles.producto', 'usuario.persona']);
 
-        if ($usuario && $usuario->tipo_usuario === 'Cliente') {
+        if ($usuario && $usuario->rol && $usuario->rol->nombre === 'Cliente') {
             $query->where('id_usuario', $usuario->id);
         }
 
