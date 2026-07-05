@@ -33,6 +33,7 @@
             "Modules\\Paquete7Comprobantes\\": "Modules/Paquete7Comprobantes/app/",
             "Modules\\Paquete8Compras\\": "Modules/Paquete8Compras/app/",
             "Modules\\Paquete9Auditoria\\": "Modules/Paquete9Auditoria/app/",
+            "Modules\\Paquete10MesasReservasResenas\\": "Modules/Paquete10MesasReservasResenas/app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
@@ -84,6 +85,9 @@
         }
     },
     "config": {
+        "platform": {
+            "php": "8.3.0"
+        },
         "optimize-autoloader": false,
         "preferred-install": "dist",
         "sort-packages": true,

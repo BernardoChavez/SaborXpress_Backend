@@ -1,0 +1,11 @@
+{
+    "name": "Paquete10MesasReservasResenas",
+    "alias": "paquete10mesasreservasresenas",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete10MesasReservasResenas\\Providers\\Paquete10MesasReservasResenasServiceProvider"
+    ],
+    "files": []
+}

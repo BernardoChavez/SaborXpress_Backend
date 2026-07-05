@@ -102,14 +102,17 @@ class VentaController extends Controller
                 'area' => 'Cocina' // Podría derivarse del tipo de producto en un futuro
             ]);
 
-            // Enviar Correo si hay email (CU26)
-            if ($request->requiere_factura && $request->email_cliente) {
+            // Enviar Correo si hay email (CU38)
+            if ($request->email_cliente) {
                 try {
-                    $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
-                    $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
-                    $pdfContent = $pdf->output();
+                    $pdfContent = null;
+                    if ($request->requiere_factura) {
+                        $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
+                        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
+                        $pdfContent = $pdf->output();
+                    }
 
-                    \Illuminate\Support\Facades\Mail::to($request->email_cliente)->send(new \App\Mail\FacturaMail($venta, $pdfContent));
+                    \Illuminate\Support\Facades\Mail::to($request->email_cliente)->send(new \App\Mail\FacturaYResenaMail($venta, $pdfContent));
                 } catch (\Exception $e) {
                     // Logear el error pero no detener la venta
                     \Illuminate\Support\Facades\Log::error('Error enviando email: ' . $e->getMessage());
