@@ -19,7 +19,6 @@ use Modules\Paquete4Inventarios\Http\Controllers\ProveedorController;
 use Modules\Paquete8Compras\Http\Controllers\OrdenCompraController;
 use Modules\Paquete9Auditoria\Http\Controllers\ReporteController;
 use Modules\Paquete9Auditoria\Http\Controllers\BitacoraController;
-use Modules\Paquete9Auditoria\Http\Controllers\BitacoraController;
 
 /*
 |--------------------------------------------------------------------------
