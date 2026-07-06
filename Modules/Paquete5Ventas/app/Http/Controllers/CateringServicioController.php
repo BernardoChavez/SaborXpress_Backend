@@ -1,10 +1,10 @@
 <?php
 
-namespace Modules\Paquete11ServiciosEspeciales\Http\Controllers;
+namespace Modules\Paquete5Ventas\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Modules\Paquete11ServiciosEspeciales\Models\CateringServicio;
+use Modules\Paquete5Ventas\Models\CateringServicio;
 use Illuminate\Support\Facades\DB;
 
 class CateringServicioController extends Controller

@@ -1,10 +1,10 @@
 <?php
 
-namespace Modules\Paquete11ServiciosEspeciales\Models;
+namespace Modules\Paquete5Ventas\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-// use Modules\Paquete11ServiciosEspeciales\Database\Factories\CateringServicioDetalleFactory;
+// use Modules\Paquete5Ventas\Database\Factories\CateringServicioDetalleFactory;
 
 class CateringServicioDetalle extends Model
 {
