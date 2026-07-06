@@ -35,6 +35,7 @@
             "Modules\\Paquete9Auditoria\\": "Modules/Paquete9Auditoria/app/",
             "Modules\\Paquete10MesasReservasResenas\\": "Modules/Paquete10MesasReservasResenas/app/",
             "Modules\\Paquete10CombosyPromociones\\": "Modules/Paquete10CombosyPromociones/app/",
+            "Modules\\Paquete11ServiciosEspeciales\\": "Modules/Paquete11ServiciosEspeciales/app/",
             "Database\\Factories\\": "database/factories/",
             "Database\\Seeders\\": "database/seeders/"
         }
@@ -96,7 +97,8 @@
             "pestphp/pest-plugin": true,
             "php-http/discovery": true,
             "wikimedia/composer-merge-plugin": false
-        }
+        },
+        "platform-check": false
     },
     "minimum-stability": "stable",
     "prefer-stable": true

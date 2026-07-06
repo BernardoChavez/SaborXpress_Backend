@@ -47,6 +47,7 @@ class InventarioController extends Controller
             'stock_minimo' => 'required|numeric|min:0'
         ]);
         $item->update($validated);
+        \Illuminate\Support\Facades\Artisan::call('inventario:check-alertas');
         return $item;
     }
 
@@ -77,6 +78,7 @@ class InventarioController extends Controller
             'stock_minimo' => 'required|numeric|min:0'
         ]);
         $item->update($validated);
+        \Illuminate\Support\Facades\Artisan::call('inventario:check-alertas');
         return $item;
     }
 
@@ -124,6 +126,8 @@ class InventarioController extends Controller
             // Actualizar stocks
             $bruto->decrement('stock', $request->cantidad_bruto);
             $procesado->increment('stock', $generado);
+
+            \Illuminate\Support\Facades\Artisan::call('inventario:check-alertas');
 
             return response()->json([
                 'message' => 'Transformación completada',
@@ -217,6 +221,8 @@ class InventarioController extends Controller
                     'hora_cierre' => now()->toTimeString()
                 ]);
             }
+
+            \Illuminate\Support\Facades\Artisan::call('inventario:check-alertas');
 
             return response()->json([
                 'message' => 'Merma registrada y stock actualizado.',
