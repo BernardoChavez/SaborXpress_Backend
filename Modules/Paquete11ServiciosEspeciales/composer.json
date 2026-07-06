@@ -1,0 +1,30 @@
+{
+    "name": "nwidart/paquete11serviciosespeciales",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Paquete11ServiciosEspeciales\\": "app/",
+            "Modules\\Paquete11ServiciosEspeciales\\Database\\Factories\\": "database/factories/",
+            "Modules\\Paquete11ServiciosEspeciales\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Paquete11ServiciosEspeciales\\Tests\\": "tests/"
+        }
+    }
+}

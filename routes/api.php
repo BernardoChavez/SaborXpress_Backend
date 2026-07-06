@@ -12,6 +12,7 @@ use Modules\Paquete5Ventas\Http\Controllers\CajaController;
 use Modules\Paquete5Ventas\Http\Controllers\VentaController;
 use Modules\Paquete6Produccion\Http\Controllers\CocinaController;
 use Modules\Paquete4Inventarios\Http\Controllers\InventarioController;
+use Modules\Paquete4Inventarios\Http\Controllers\InventarioAlertaController;
 use Modules\Paquete4Inventarios\Http\Controllers\ProveedorController;
 use Modules\Paquete8Compras\Http\Controllers\OrdenCompraController;
 use Modules\Paquete5Ventas\Http\Controllers\EgresoCajaController;
@@ -118,6 +119,16 @@ Route::middleware(['auth:sanctum', 'bitacora'])->group(function () {
     Route::post('/inventario/recetas', [InventarioController::class, 'storeReceta']);
     Route::get('/inventario/recetas/{id_producto}', [InventarioController::class, 'getRecetas'])->whereNumber('id_producto');
     Route::delete('/inventario/recetas/{id}', [InventarioController::class, 'destroyReceta'])->whereNumber('id');
+
+    // CU38 - Alertas de Inventario
+    Route::get('/inventario/alertas', [InventarioAlertaController::class, 'index']);
+    Route::get('/inventario/alertas/historial', [InventarioAlertaController::class, 'historial']);
+    Route::post('/inventario/alertas/configurar', [InventarioAlertaController::class, 'configurar']);
+    Route::get('/inventario/alertas/config/{tipo}/{id}', [InventarioAlertaController::class, 'getConfig']);
+    Route::patch('/inventario/alertas/{id}/atender', [InventarioAlertaController::class, 'marcarAtendida']);
+    Route::post('/inventario/alertas/{id}/reenviar', [InventarioAlertaController::class, 'reenviarCorreo']);
+    Route::delete('/inventario/alertas/{id}', [InventarioAlertaController::class, 'destroyAlerta']);
+    Route::delete('/inventario/alertas/config/{tipo_inventario}/{inventario_id}', [InventarioAlertaController::class, 'destroyConfig']);
 
     // Proveedores (CU 10)
     Route::get('/proveedores', [ProveedorController::class, 'index']);

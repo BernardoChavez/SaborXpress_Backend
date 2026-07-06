@@ -1,0 +1,11 @@
+{
+    "name": "Paquete11ServiciosEspeciales",
+    "alias": "paquete11serviciosespeciales",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Paquete11ServiciosEspeciales\\Providers\\Paquete11ServiciosEspecialesServiceProvider"
+    ],
+    "files": []
+}
