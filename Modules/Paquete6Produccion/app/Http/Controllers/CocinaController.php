@@ -13,7 +13,7 @@ class CocinaController extends Controller
      */
     public function index()
     {
-        return Comanda::with(['venta.detalles.producto'])
+        return Comanda::with(['venta.detalles.producto', 'venta.detalles.combo.productos.producto'])
             ->whereIn('estado', ['Pendiente', 'En preparación', 'Listo'])
             ->orderBy('created_at', 'asc')
             ->get();

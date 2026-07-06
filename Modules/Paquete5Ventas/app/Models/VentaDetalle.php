@@ -4,11 +4,12 @@ namespace Modules\Paquete5Ventas\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Modules\Paquete3Configuracion\Models\Producto;
+use Modules\Paquete10CombosyPromociones\Models\Combo;
 
 class VentaDetalle extends Model
 {
     protected $table = 'venta_detalles';
-    protected $fillable = ['id_venta', 'id_producto', 'cantidad', 'precio_unitario', 'subtotal'];
+    protected $fillable = ['id_venta', 'id_producto', 'id_combo', 'cantidad', 'precio_unitario', 'subtotal'];
 
     public function venta()
     {
@@ -18,5 +19,10 @@ class VentaDetalle extends Model
     public function producto()
     {
         return $this->belongsTo(Producto::class, 'id_producto');
+    }
+
+    public function combo()
+    {
+        return $this->belongsTo(Combo::class, 'id_combo');
     }
 }

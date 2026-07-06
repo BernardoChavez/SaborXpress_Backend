@@ -93,5 +93,20 @@ class SaborXpressProyectSeeder extends Seeder
         Producto::updateOrCreate(['id' => 3], ['nombre' => 'Salchipapa Simple', 'precio_venta' => 15.0, 'id_categoria' => $c3->id, 'descripcion' => 'Clásica con papas fritas']);
 
         $this->command->info('Base de datos SaborXpress (Full Data) lista para migración.');
+
+        // 6. Sincronizar secuencias de PostgreSQL (para evitar error de llaves duplicadas)
+        if (config('database.default') === 'pgsql') {
+            $tables = ['categoria', 'producto', 'combos', 'personas', 'paquete', 'caso_uso', 'rol'];
+            foreach ($tables as $table) {
+                try {
+                    $max = \Illuminate\Support\Facades\DB::table($table)->max('id');
+                    if ($max) {
+                        \Illuminate\Support\Facades\DB::statement("SELECT setval('{$table}_id_seq', {$max})");
+                    }
+                } catch (\Exception $e) {
+                    // Ignorar si la tabla o secuencia no existe
+                }
+            }
+        }
     }
 }

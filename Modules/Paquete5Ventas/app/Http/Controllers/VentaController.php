@@ -23,7 +23,8 @@ class VentaController extends Controller
             'metodo_pago' => 'required|in:Efectivo,QR',
             'tipo_entrega' => 'required|in:Mesa,Llevar',
             'detalles' => 'required|array|min:1',
-            'detalles.*.id_producto' => 'required|exists:producto,id',
+            'detalles.*.id_producto' => 'nullable|exists:producto,id',
+            'detalles.*.id_combo' => 'nullable|exists:combos,id',
             'detalles.*.cantidad' => 'required|integer|min:1',
             'detalles.*.precio_unitario' => 'required|numeric',
             'VentaEstado' => 'nullable|string|max:255',
@@ -85,14 +86,24 @@ class VentaController extends Controller
             foreach ($request->detalles as $det) {
                 VentaDetalle::create([
                     'id_venta' => $venta->id,
-                    'id_producto' => $det['id_producto'],
+                    'id_producto' => $det['id_producto'] ?? null,
+                    'id_combo' => $det['id_combo'] ?? null,
                     'cantidad' => $det['cantidad'],
                     'precio_unitario' => $det['precio_unitario'],
                     'subtotal' => $det['cantidad'] * $det['precio_unitario']
                 ]);
 
                 // CU32: Descargo automático de stock basado en recetas
-                $this->descargarStock($det['id_producto'], $det['cantidad']);
+                if (!empty($det['id_producto'])) {
+                    $this->descargarStock($det['id_producto'], $det['cantidad']);
+                } else if (!empty($det['id_combo'])) {
+                    $combo = \Modules\Paquete10CombosyPromociones\Models\Combo::with('productos')->find($det['id_combo']);
+                    if ($combo) {
+                        foreach ($combo->productos as $cp) {
+                            $this->descargarStock($cp->producto_id, $det['cantidad'] * $cp->cantidad);
+                        }
+                    }
+                }
             }
 
             // CU20: Crear Comanda para Cocina
@@ -146,7 +157,7 @@ class VentaController extends Controller
     public function index()
     {
         $usuario = Auth::user();
-        $query = Venta::with(['detalles.producto', 'usuario.persona']);
+        $query = Venta::with(['detalles.producto', 'detalles.combo', 'usuario.persona']);
 
         if ($usuario && $usuario->rol && $usuario->rol->nombre === 'Cliente') {
             $query->where('id_usuario', $usuario->id);
@@ -160,7 +171,7 @@ class VentaController extends Controller
      */
     public function generarTicket($id)
     {
-        $venta = Venta::with(['detalles.producto', 'usuario.persona'])->findOrFail($id);
+        $venta = Venta::with(['detalles.producto', 'detalles.combo.productos.producto', 'usuario.persona'])->findOrFail($id);
         $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first() ?? (object)[
             'nombre' => 'Sabor Xpress',
             'nit' => '00000000',
@@ -190,10 +201,19 @@ class VentaController extends Controller
 
         foreach ($venta->detalles as $det) {
             $cantStr = str_pad($det->cantidad, 3, " ", STR_PAD_RIGHT);
-            $nombreProd = substr($det->producto->nombre ?? 'Producto', 0, 18);
+            $nombreProd = substr($det->producto?->nombre ?? $det->combo?->nombre ?? 'Producto', 0, 18);
             $nombreProdStr = str_pad($nombreProd, 18, " ", STR_PAD_RIGHT);
             $subtotalStr = str_pad(number_format($det->subtotal, 2), 10, " ", STR_PAD_LEFT);
             $text .= $cantStr . " " . $nombreProdStr . " " . $subtotalStr . "\n";
+            
+            // Si es un combo, listar sus contenidos debajo de forma indentada
+            if ($det->combo && $det->combo->productos) {
+                foreach ($det->combo->productos as $cp) {
+                    $subCant = $cp->cantidad * $det->cantidad;
+                    $subNombre = substr($cp->producto->nombre ?? 'Item', 0, 16);
+                    $text .= "    - " . $subCant . "x " . $subNombre . "\n";
+                }
+            }
         }
         $text .= $lineaSimple;
         
