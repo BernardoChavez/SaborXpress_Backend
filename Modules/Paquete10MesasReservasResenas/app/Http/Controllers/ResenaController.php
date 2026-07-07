@@ -31,9 +31,11 @@ class ResenaController extends Controller
             'calificacion' => 'required|integer|min:1|max:5'
         ]);
         
-        // Verifica si ya existe reseña para esa venta
-        if (Resena::where('venta_id', $request->venta_id)->exists()) {
-            return response()->json(['message' => 'Esta factura ya fue calificada.'], 400);
+        // Si ya existe reseña para esa venta, actualizarla en lugar de dar error 400
+        $existingResena = Resena::where('venta_id', $request->venta_id)->first();
+        if ($existingResena) {
+            $existingResena->update($request->all());
+            return response()->json($existingResena, 200);
         }
 
         $resena = Resena::create($request->all());
