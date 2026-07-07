@@ -218,7 +218,7 @@ class InventarioAlertaController extends Controller
                     $m->to($alerta->correo_destinatario)->subject($asunto);
                 });
             } catch (\Exception $e) {
-                return response()->json(['message' => 'Error al enviar el correo'], 500);
+                return response()->json(['message' => 'Error al enviar el correo: ' . $e->getMessage()], 500);
             }
         }
 

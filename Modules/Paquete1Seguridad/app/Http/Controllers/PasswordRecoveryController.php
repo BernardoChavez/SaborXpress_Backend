@@ -44,7 +44,7 @@ class PasswordRecoveryController extends Controller
                         ->subject('Código de Recuperación - SaborXpress');
             });
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Error al enviar el correo. Verifica tu configuración de .env'], 500);
+            return response()->json(['message' => 'Error al enviar el correo: ' . $e->getMessage()], 500);
         }
 
         return response()->json(['message' => 'Si el correo existe, se ha enviado un código de recuperación.'], 200);
