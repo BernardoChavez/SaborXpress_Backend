@@ -158,7 +158,7 @@
 
     <table class="totals-table">
         <tr>
-            <td width="65%" class="literal">Son: {{ NumberFormatter::create('es', NumberFormatter::SPELLOUT)->format($venta->monto_total) }} {{ $empresa->moneda ?? 'Bs.' }}</td>
+            <td width="65%" class="literal">Son: {{ class_exists('NumberFormatter') ? NumberFormatter::create('es', NumberFormatter::SPELLOUT)->format($venta->monto_total) : number_format($venta->monto_total, 2) }} {{ $empresa->moneda ?? 'Bs.' }}</td>
             <td width="15%" class="text-right"><strong>Subtotal:</strong></td>
             <td width="20%" class="text-right">{{ number_format($venta->monto_total, 2) }}</td>
         </tr>

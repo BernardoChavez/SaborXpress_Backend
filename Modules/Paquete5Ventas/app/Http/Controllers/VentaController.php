@@ -127,6 +127,18 @@ class VentaController extends Controller
                     $pdfContent = null;
                     if ($request->requiere_factura) {
                         $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
+                        if (!$empresa) {
+                            $empresa = new \Modules\Paquete3Configuracion\Models\Empresa([
+                                'nombre' => 'SABOR XPRESS',
+                                'direccion' => 'Av. Principal #123',
+                                'telefono' => '70000000',
+                                'nit' => '1020304050',
+                                'moneda' => 'Bs.',
+                                'sucursal' => 'CASA MATRIZ',
+                                'ciudad' => 'SANTA CRUZ',
+                                'leyenda_factura' => 'Ley N° 453: La interrupción del servicio debe comunicarse con anterioridad.'
+                            ]);
+                        }
                         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
                         $pdfContent = $pdf->output();
                     }
@@ -322,6 +334,18 @@ class VentaController extends Controller
         }
 
         $empresa = \Modules\Paquete3Configuracion\Models\Empresa::first();
+        if (!$empresa) {
+            $empresa = new \Modules\Paquete3Configuracion\Models\Empresa([
+                'nombre' => 'SABOR XPRESS',
+                'direccion' => 'Av. Principal #123',
+                'telefono' => '70000000',
+                'nit' => '1020304050',
+                'moneda' => 'Bs.',
+                'sucursal' => 'CASA MATRIZ',
+                'ciudad' => 'SANTA CRUZ',
+                'leyenda_factura' => 'Ley N° 453: La interrupción del servicio debe comunicarse con anterioridad.'
+            ]);
+        }
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('factura', compact('venta', 'empresa'));
         
