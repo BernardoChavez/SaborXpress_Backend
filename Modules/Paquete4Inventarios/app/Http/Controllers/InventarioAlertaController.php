@@ -247,17 +247,47 @@ class InventarioAlertaController extends Controller
         return response()->json(['message' => 'Configuración eliminada exitosamente']);
     }
 
-    // Endpoint rápido para probar configuración de correo en Railway
+    // Endpoint rápido para probar configuración de correo y escanear puertos en Railway
     public function testEmail(Request $request)
     {
         $destinatario = $request->query('correo', 'chavezbernardo15@gmail.com');
+        
+        // Escanear puertos comunes para ver cuáles bloquea el firewall de Railway
+        $puertos = [
+            'gmail_587' => ['host' => 'smtp.gmail.com', 'port' => 587],
+            'gmail_465' => ['host' => 'smtp.gmail.com', 'port' => 465],
+            'brevo_2525' => ['host' => 'smtp-relay.brevo.com', 'port' => 2525],
+            'mailtrap_2525' => ['host' => 'sandbox.smtp.mailtrap.io', 'port' => 2525],
+        ];
+
+        $diagnosticoPuertos = [];
+        foreach ($puertos as $nombre => $data) {
+            $inicio = microtime(true);
+            $conexion = @fsockopen($data['host'], $data['port'], $errno, $errstr, 3);
+            if ($conexion) {
+                fclose($conexion);
+                $diagnosticoPuertos[$nombre] = 'ABIERTO (' . round((microtime(true) - $inicio) * 1000) . 'ms)';
+            } else {
+                $diagnosticoPuertos[$nombre] = "BLOQUEADO o CERRADO ($errno: $errstr)";
+            }
+        }
+
         try {
             \Illuminate\Support\Facades\Mail::raw("¡Felicidades! Tu configuración de correo en Railway está funcionando al 100%.", function ($m) use ($destinatario) {
                 $m->to($destinatario)->subject('Prueba Exitosa - SaborXpress Railway');
             });
-            return response()->json(['success' => true, 'message' => "¡Correo enviado con éxito a $destinatario desde Railway!"]);
+            return response()->json([
+                'success' => true, 
+                'message' => "¡Correo enviado con éxito a $destinatario desde Railway!",
+                'puertos_firewall_railway' => $diagnosticoPuertos
+            ]);
         } catch (\Exception $e) {
-            return response()->json(['success' => false, 'error' => $e->getMessage(), 'message' => "Fallo al enviar correo desde Railway: " . $e->getMessage()], 500);
+            return response()->json([
+                'success' => false, 
+                'error' => $e->getMessage(), 
+                'message' => "Fallo al enviar correo: " . $e->getMessage(),
+                'puertos_firewall_railway' => $diagnosticoPuertos
+            ], 500);
         }
     }
 }
