@@ -32,6 +32,7 @@ Route::get('/login', function() {
     return response()->json(['message' => 'Sesión expirada.'], 401);
 });
 Route::post('/register', [AuthController::class, 'register']);
+Route::get('/test-email', [InventarioAlertaController::class, 'testEmail']);
 
 // --- RECUPERACIÓN DE CONTRASEÑA (CU 3) - PÚBLICAS ---
 Route::post('/password/forgot', [PasswordRecoveryController::class, 'sendCode']);

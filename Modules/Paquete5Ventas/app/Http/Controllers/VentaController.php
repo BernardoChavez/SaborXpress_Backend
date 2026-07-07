@@ -106,6 +106,13 @@ class VentaController extends Controller
                 }
             }
 
+            // Verificar si el descargo generó alertas de inventario bajo y enviar correo al encargado
+            try {
+                \Illuminate\Support\Facades\Artisan::call('inventario:check-alertas');
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Error en check-alertas: ' . $e->getMessage());
+            }
+
             // CU20: Crear Comanda para Cocina
             Comanda::create([
                 'id_venta' => $venta->id,
@@ -114,6 +121,7 @@ class VentaController extends Controller
             ]);
 
             // Enviar Correo si hay email (CU38)
+            $errorEmail = null;
             if ($request->email_cliente) {
                 try {
                     $pdfContent = null;
@@ -125,14 +133,16 @@ class VentaController extends Controller
 
                     \Illuminate\Support\Facades\Mail::to($request->email_cliente)->send(new \App\Mail\FacturaYResenaMail($venta, $pdfContent));
                 } catch (\Exception $e) {
-                    // Logear el error pero no detener la venta
-                    \Illuminate\Support\Facades\Log::error('Error enviando email: ' . $e->getMessage());
+                    // Logear el error y capturar el mensaje exacto
+                    $errorEmail = $e->getMessage();
+                    \Illuminate\Support\Facades\Log::error('Error enviando email: ' . $errorEmail);
                 }
             }
 
             return response()->json([
-                'message' => 'Venta registrada con éxito',
+                'message' => $errorEmail ? 'Venta registrada, pero falló el envío de correo: ' . $errorEmail : 'Venta registrada con éxito',
                 'nro_pedido' => $nroPedido,
+                'error_email' => $errorEmail,
                 'venta' => $venta->load('detalles.producto')
             ], 201);
         });

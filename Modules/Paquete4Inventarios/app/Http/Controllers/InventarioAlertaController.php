@@ -246,4 +246,18 @@ class InventarioAlertaController extends Controller
         
         return response()->json(['message' => 'Configuración eliminada exitosamente']);
     }
+
+    // Endpoint rápido para probar configuración de correo en Railway
+    public function testEmail(Request $request)
+    {
+        $destinatario = $request->query('correo', 'chavezbernardo15@gmail.com');
+        try {
+            \Illuminate\Support\Facades\Mail::raw("¡Felicidades! Tu configuración de correo en Railway está funcionando al 100%.", function ($m) use ($destinatario) {
+                $m->to($destinatario)->subject('Prueba Exitosa - SaborXpress Railway');
+            });
+            return response()->json(['success' => true, 'message' => "¡Correo enviado con éxito a $destinatario desde Railway!"]);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'error' => $e->getMessage(), 'message' => "Fallo al enviar correo desde Railway: " . $e->getMessage()], 500);
+        }
+    }
 }
