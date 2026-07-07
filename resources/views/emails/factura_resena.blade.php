@@ -88,7 +88,7 @@
                                             Nos esforzamos cada día por ofrecerte el mejor sabor y atención. Regálanos 1 minuto para calificar tu pedido y ayudarnos a seguir mejorando.
                                         </p>
                                         
-                                        <a href="{{ rtrim(env('APP_URL_FRONTEND', 'http://localhost:5173'), '/') }}/feedback/{{ $venta->id }}" style="display: inline-block; background-color: #ff5722; color: #ffffff; padding: 16px 36px; font-size: 15px; font-weight: 800; text-decoration: none; border-radius: 9999px; box-shadow: 0 6px 16px rgba(255, 87, 34, 0.35); text-transform: uppercase; letter-spacing: 0.5px;">
+                                        <a href="{{ rtrim(env('APP_URL_FRONTEND', 'https://sabor-xpress-frontend2-0-4yif-six.vercel.app'), '/') }}/feedback/{{ $venta->id }}" style="display: inline-block; background-color: #ff5722; color: #ffffff; padding: 16px 36px; font-size: 15px; font-weight: 800; text-decoration: none; border-radius: 9999px; box-shadow: 0 6px 16px rgba(255, 87, 34, 0.35); text-transform: uppercase; letter-spacing: 0.5px;">
                                             Calificar Mi Pedido
                                         </a>
                                     </td>
