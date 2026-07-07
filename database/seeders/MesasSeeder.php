@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Modules\Paquete10MesasReservasResenas\Models\Zona;
 use Modules\Paquete10MesasReservasResenas\Models\Mesa;
 
