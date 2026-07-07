@@ -13,7 +13,7 @@ class Mesa extends Model
     /**
      * The attributes that are mass assignable.
      */
-    protected $fillable = ['zona_id', 'numero', 'capacidad', 'estado', 'fila'];
+    protected $fillable = ['zona_id', 'numero', 'capacidad', 'estado', 'fila', 'reserva_nombre', 'reserva_telefono', 'reserva_hora'];
 
     public function zona()
     {
