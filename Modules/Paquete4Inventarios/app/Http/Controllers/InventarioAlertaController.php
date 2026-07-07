@@ -134,10 +134,10 @@ class InventarioAlertaController extends Controller
                                      . "Encargado: " . ($config->encargado ?: 'No asignado') . "\n\n"
                                      . "Por favor, reabastezca este producto a la brevedad.";
 
-                            if ($config->correo_remitente) {
+                            if ($config->correo_remitente && config('mail.default') !== 'resend') {
                                 config(['mail.from.address' => $config->correo_remitente]);
-                                config(['mail.from.name' => 'SaborXpress (Alertas)']);
                             }
+                            config(['mail.from.name' => 'SaborXpress (Alertas)']);
 
                             Mail::raw($mensaje, function ($m) use ($config, $asunto) {
                                 $m->to($config->correo_destinatario)->subject($asunto);
@@ -199,10 +199,10 @@ class InventarioAlertaController extends Controller
         }
 
         // Simulación o envío real:
-        if ($alerta->correo_remitente) {
+        if ($alerta->correo_remitente && config('mail.default') !== 'resend') {
             config(['mail.from.address' => $alerta->correo_remitente]);
-            config(['mail.from.name' => 'SaborXpress (Alertas)']);
         }
+        config(['mail.from.name' => 'SaborXpress (Alertas)']);
 
         $prod = $alerta->producto;
         if ($prod) {
