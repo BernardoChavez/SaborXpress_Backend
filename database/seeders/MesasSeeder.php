@@ -12,9 +12,16 @@ class MesasSeeder extends Seeder
     public function run()
     {
         // Asegurar que exista la columna fila en la tabla mesas
-        DB::statement('ALTER TABLE mesas ADD COLUMN IF NOT EXISTS fila INT DEFAULT 1;');
-        DB::statement('TRUNCATE TABLE mesas RESTART IDENTITY CASCADE;');
-        DB::statement('TRUNCATE TABLE zonas RESTART IDENTITY CASCADE;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('ALTER TABLE mesas ADD COLUMN IF NOT EXISTS fila INT DEFAULT 1;');
+            DB::statement('TRUNCATE TABLE mesas RESTART IDENTITY CASCADE;');
+            DB::statement('TRUNCATE TABLE zonas RESTART IDENTITY CASCADE;');
+        } else {
+            Schema::disableForeignKeyConstraints();
+            DB::table('mesas')->truncate();
+            DB::table('zonas')->truncate();
+            Schema::enableForeignKeyConstraints();
+        }
 
         $zonasNombres = ['Terraza', 'Salón Principal'];
         

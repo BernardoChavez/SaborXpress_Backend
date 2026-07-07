@@ -10,14 +10,20 @@ class ResenasSeeder extends Seeder
 {
     public function run()
     {
-        DB::statement('TRUNCATE TABLE resenas RESTART IDENTITY CASCADE;');
+        if (DB::getDriverName() === 'pgsql') {
+            DB::statement('TRUNCATE TABLE resenas RESTART IDENTITY CASCADE;');
+        } else {
+            Schema::disableForeignKeyConstraints();
+            DB::table('resenas')->truncate();
+            Schema::enableForeignKeyConstraints();
+        }
 
         // Check if there's any venta, if not, create a dummy one.
         $ventaId = DB::table('ventas')->value('id');
         if (!$ventaId) {
-            // Need to insert at least one to satisfy foreign key.
-            // We just bypass FK constraint for the seeder if possible, or insert dummy
-            DB::statement('ALTER TABLE resenas DROP CONSTRAINT IF EXISTS resenas_venta_id_foreign');
+            if (DB::getDriverName() === 'pgsql') {
+                DB::statement('ALTER TABLE resenas DROP CONSTRAINT IF EXISTS resenas_venta_id_foreign');
+            }
             $ventaId = 1;
         }
 
