@@ -1,5 +1,6 @@
 <?php
 
+////
 namespace Modules\Paquete2Usuarios\Http\Controllers;
 
 use App\Http\Controllers\Controller;
