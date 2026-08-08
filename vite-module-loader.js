@@ -2,6 +2,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import { pathToFileURL } from 'url';
 
+
+
 async function collectModuleAssetsPaths(paths, modulesPath) {
   modulesPath = path.join(__dirname, modulesPath);
 
